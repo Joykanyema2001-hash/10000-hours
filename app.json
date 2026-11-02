@@ -1,17 +1,20 @@
 {
   "expo": {
-    "name": "tenk",
-    "slug": "tenk",
+    "name": "10,000 Hours",
+    "slug": "ten-thousand-hours",
+    "scheme": "tenk",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.joykanyema.tenthousandhours"
     },
     "android": {
+      "package": "com.joykanyema.tenthousandhours",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#C6FF2B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -20,6 +23,27 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#C6FF2B"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0C0B2B"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
     }
   }
 }
