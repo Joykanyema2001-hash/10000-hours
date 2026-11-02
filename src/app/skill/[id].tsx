@@ -1,5 +1,4 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
 import { ScrollView, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,9 +7,7 @@ import { Button } from '../../components/Button';
 import { HourGrid } from '../../components/HourGrid';
 import { IconButton } from '../../components/IconButton';
 import { Text } from '../../components/Text';
-import { haptics } from '../../lib/haptics';
 import { useNow } from '../../lib/hooks';
-import { latestLevel } from '../../lib/levels';
 import { startSession } from '../../lib/session';
 import { formatDuration, GOAL_HOURS, HOUR, percentOfGoal, withCommas } from '../../lib/time';
 import { dailyRateMs, projectedYear, skillTotalMs, useStore } from '../../store';
@@ -30,14 +27,6 @@ export default function SkillScreen() {
   const total = skill ? skillTotalMs({ skills, sessions, active }, skill.id, now) : 0;
   const hours = Math.floor(total / HOUR);
   const fromHours = from != null ? Number(from) : undefined;
-
-  // Arriving from "Finish": celebrate a new level with a success haptic.
-  useEffect(() => {
-    if (fromHours == null) return;
-    const before = latestLevel(fromHours);
-    const after = latestLevel(hours);
-    if (after && after !== before) haptics.success();
-  }, []);
 
   if (!skill) {
     return (

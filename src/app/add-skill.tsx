@@ -8,6 +8,7 @@ import { Field } from '../components/Field';
 import { IconButton } from '../components/IconButton';
 import { Text } from '../components/Text';
 import { haptics } from '../lib/haptics';
+import { notify } from '../lib/notify';
 import { withCommas } from '../lib/time';
 import { useStore } from '../store';
 import { colors } from '../theme';
@@ -33,8 +34,12 @@ export default function AddSkill() {
 
   const save = () => {
     if (!canSave) return;
-    haptics.success();
     const id = addSkill(name, priorHours);
+    notify({
+      kind: 'info',
+      title: `${name.trim()} added`,
+      body: priorHours > 0 ? `${withCommas(Math.round(priorHours))} hours already counted.` : 'Start a session whenever you are ready.',
+    });
     setDailyGoal(goal);
     if (isFirst) router.replace('/(tabs)');
     else router.replace(`/skill/${id}`);

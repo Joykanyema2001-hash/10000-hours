@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { elapsedOf, skillTotalMs, todayMs, useStore, type Session } from '../store';
 import { haptics } from './haptics';
 import { cancelSessionAlerts, ensurePermission, scheduleNudge, scheduleSessionAlerts } from './notifications';
-import { MINUTE } from './time';
+import { notify } from './notify';
+import { formatDuration, HOUR, MINUTE, withCommas } from './time';
 
 /** Session actions that keep store, haptics and notifications in step. */
 
@@ -47,8 +48,12 @@ export function finishSession(): Session | null {
   const done = s.finish();
   cancelSessionAlerts().catch(() => {});
   if (done) {
-    haptics.success();
     const after = useStore.getState();
+    const skill = after.skills.find((k) => k.id === done.skillId);
+    if (skill) {
+      // Banner carries the success haptic on the same frame it appears.
+      notify({ kind: 'logged', title: `Logged ${formatDuration(done.ms)} of ${skill.name}`, body: `${withCommas(Math.floor(skillTotalMs(after, skill.id) / HOUR))} hours in total.` });
+    }
     scheduleNudge(todayMs(after), after.dailyGoalMin * MINUTE).catch(() => {});
   }
   return done;

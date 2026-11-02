@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { latestLevel } from './lib/levels';
 import { DAY, HOUR, MINUTE, startOfDay } from './lib/time';
 
 export type Skill = { id: string; name: string; priorMs: number; createdAt: number };
@@ -25,6 +26,9 @@ type State = {
   dailyGoalMin: number;
   active: ActiveSession | null;
   lastSkillId: string | null;
+  /** Highest level (in hours) already celebrated per skill, so each pop-up shows once. */
+  celebrated: Record<string, number>;
+  markCelebrated: (skillId: string, hours: number) => void;
   addSkill: (name: string, priorHours: number) => string;
   setDailyGoal: (min: number) => void;
   startSession: (skillId: string) => void;
@@ -47,11 +51,16 @@ export const useStore = create<State>()(
       dailyGoalMin: 120,
       active: null,
       lastSkillId: null,
+      celebrated: {},
+
+      markCelebrated: (skillId, hours) => set((s) => ({ celebrated: { ...s.celebrated, [skillId]: hours } })),
 
       addSkill: (name, priorHours) => {
         const id = uid();
         const skill: Skill = { id, name: name.trim(), priorMs: Math.max(0, priorHours) * HOUR, createdAt: Date.now() };
-        set((s) => ({ skills: [...s.skills, skill], lastSkillId: s.lastSkillId ?? id }));
+        // Levels already earned before the app don't pop up.
+        const already = latestLevel(Math.floor(skill.priorMs / HOUR))?.hours ?? 0;
+        set((s) => ({ skills: [...s.skills, skill], lastSkillId: s.lastSkillId ?? id, celebrated: { ...s.celebrated, [id]: already } }));
         return id;
       },
 
@@ -89,7 +98,7 @@ export const useStore = create<State>()(
     {
       name: 'tenk-v1',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({ skills, sessions, dailyGoalMin, active, lastSkillId }) => ({ skills, sessions, dailyGoalMin, active, lastSkillId }),
+      partialize: ({ skills, sessions, dailyGoalMin, active, lastSkillId, celebrated }) => ({ skills, sessions, dailyGoalMin, active, lastSkillId, celebrated }),
     },
   ),
 );
@@ -131,4 +140,27 @@ export function projectedYear(remainingMs: number, rateMsPerDay: number, now = D
   if (remainingMs <= 0) return new Date(now).getFullYear();
   const days = remainingMs / Math.max(rateMsPerDay, MINUTE);
   return new Date(now + days * DAY).getFullYear();
+}
+
+/** Practice per day for the last `days` days (oldest first), today included. */
+export function dayTotals(s: Pick<State, 'sessions' | 'active'>, days = 7, now = Date.now()) {
+  const today = startOfDay(now);
+  const out = Array.from({ length: days }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (days - 1 - i));
+    return { start: d.getTime(), ms: 0 };
+  });
+  const first = out[0].start;
+  for (const x of s.sessions) {
+    if (x.end < first) continue;
+    const day = startOfDay(x.end);
+    const slot = out.find((o) => o.start === day);
+    if (slot) slot.ms += x.ms;
+  }
+  out[out.length - 1].ms += elapsedOf(s.active, now);
+  return out;
+}
+
+export function allTimeMs(s: Pick<State, 'skills' | 'sessions' | 'active'>, now = Date.now()) {
+  return s.skills.reduce((sum, k) => sum + skillTotalMs(s, k.id, now), 0);
 }

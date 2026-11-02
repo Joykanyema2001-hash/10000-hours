@@ -7,7 +7,7 @@ import { Text } from './Text';
 type Props = {
   label: string;
   onPress?: () => void;
-  variant?: 'primary' | 'outline';
+  variant?: 'primary' | 'outline' | 'lime';
   size?: 'lg' | 'md' | 'sm';
   icon?: ReactNode;
   disabled?: boolean;
@@ -20,6 +20,7 @@ const SIZES = { lg: { h: 60, fs: 20, r: 18 }, md: { h: 56, fs: 18, r: 18 }, sm: 
 export function Button({ label, onPress, variant = 'primary', size = 'lg', icon, disabled, style, accessibilityHint }: Props) {
   const s = SIZES[size];
   const primary = variant === 'primary';
+  const fill = primary ? { backgroundColor: colors.ink } : variant === 'lime' ? { backgroundColor: colors.lime } : { borderWidth: 3, borderColor: colors.ink };
   return (
     <PressableScale
       onPress={onPress}
@@ -31,7 +32,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', icon,
       style={[
         styles.base,
         { minHeight: s.h, borderRadius: s.r },
-        primary ? { backgroundColor: colors.ink } : { borderWidth: 3, borderColor: colors.ink },
+        fill,
         style,
       ]}
     >

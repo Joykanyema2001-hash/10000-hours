@@ -1,8 +1,7 @@
 import { useKeepAwake } from 'expo-keep-awake';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Alert, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut, FadeOutUp, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { ClockFace } from '../components/ClockFace';
@@ -12,7 +11,6 @@ import { RollingText } from '../components/RollingText';
 import { Text } from '../components/Text';
 import { haptics } from '../lib/haptics';
 import { useNow } from '../lib/hooks';
-import { levelAt, withArticle } from '../lib/levels';
 import { discardSession, finishSession, togglePause } from '../lib/session';
 import { formatClock, HOUR, MINUTE, withCommas } from '../lib/time';
 import { elapsedOf, skillTotalMs, useStore } from '../store';
@@ -20,7 +18,6 @@ import { colors, fonts } from '../theme';
 
 export default function Timer() {
   useKeepAwake();
-  const reduce = useReducedMotion();
   const skills = useStore((s) => s.skills);
   const sessions = useStore((s) => s.sessions);
   const active = useStore((s) => s.active);
@@ -36,26 +33,13 @@ export default function Timer() {
   const nextHour = hoursNow + 1;
   const minsLeft = Math.ceil((nextHour * HOUR - total) / MINUTE);
 
-  // Feedback tied to real events: a light tick each minute, success on each new hour.
-  const [toast, setToast] = useState<string | null>(null);
+  // A light tick each minute while running. Hour and milestone pop-ups come from SessionWatcher.
   const prevMinute = useRef(Math.floor(elapsed / MINUTE));
-  const prevHours = useRef(hoursNow);
   useEffect(() => {
     const minute = Math.floor(elapsed / MINUTE);
-    if (running && minute > prevMinute.current && hoursNow === prevHours.current) haptics.tick();
+    if (running && minute > prevMinute.current) haptics.tick();
     prevMinute.current = minute;
-    if (hoursNow > prevHours.current) {
-      haptics.success();
-      const level = levelAt(hoursNow);
-      setToast(level ? `${withCommas(hoursNow)} hours. You're ${withArticle(level.name)}!` : `Hour ${withCommas(hoursNow)} logged`);
-    }
-    prevHours.current = hoursNow;
-  }, [elapsed, hoursNow, running]);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2600);
-    return () => clearTimeout(t);
-  }, [toast]);
+  }, [elapsed, running]);
 
   if (!active || !skill) {
     return (
@@ -101,17 +85,6 @@ export default function Timer() {
             hourCount={hourCount}
             accessibilityLabel={`Session clock, ${formatClock(elapsed)} elapsed${running ? '' : ', paused'}`}
           />
-          {toast ? (
-            <Animated.View
-              key={toast}
-              entering={reduce ? FadeIn : FadeInDown.springify().dampingRatio(0.75).duration(420)}
-              exiting={reduce ? FadeOut : FadeOutUp.duration(220)}
-              accessibilityLiveRegion="polite"
-              style={{ position: 'absolute', top: -20, backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 }}
-            >
-              <Text style={{ color: colors.lime, fontFamily: fonts.displaySemi, fontSize: 16 }}>{toast}</Text>
-            </Animated.View>
-          ) : null}
         </View>
 
         <View style={{ marginTop: 32, alignItems: 'center', gap: 12 }}>
