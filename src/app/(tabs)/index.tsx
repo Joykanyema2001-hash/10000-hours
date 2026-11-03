@@ -179,7 +179,7 @@ export default function Today() {
               live={active?.skillId === k.id}
               totalMs={skillTotalMs(state, k.id, now)}
               onPress={() => router.push(`/skill/${k.id}`)}
-              onStart={!active || active.skillId === k.id ? () => startSession(k.id) : undefined}
+              onStart={() => startSession(k.id)}
             />
           ))}
           <PressableScale

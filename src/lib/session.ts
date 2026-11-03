@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
 import { elapsedOf, skillTotalMs, todayMs, useStore, type Session } from '../store';
 import { haptics } from './haptics';
 import { cancelSessionAlerts, ensurePermission, scheduleNudge, scheduleSessionAlerts } from './notifications';
 import { notify } from './notify';
-import { formatDuration, HOUR, MINUTE, withCommas } from './time';
+import { formatClock, formatDuration, HOUR, MINUTE, withCommas } from './time';
 
 /** Session actions that keep store, haptics and notifications in step. */
 
@@ -21,7 +22,7 @@ async function planAlerts() {
   });
 }
 
-export function startSession(skillId: string) {
+function begin(skillId: string) {
   const s = useStore.getState();
   if (!s.active) {
     haptics.commit();
@@ -32,6 +33,43 @@ export function startSession(skillId: string) {
   ensurePermission()
     .then((ok) => (ok ? planAlerts() : undefined))
     .catch(() => {});
+}
+
+/**
+ * Start (or reopen) a session. Only one session runs at a time, so if another
+ * skill's session is open, ask what to do instead of silently doing nothing.
+ */
+export function startSession(skillId: string) {
+  const s = useStore.getState();
+  const a = s.active;
+  if (!a || a.skillId === skillId) return begin(skillId);
+
+  const other = s.skills.find((k) => k.id === a.skillId);
+  const target = s.skills.find((k) => k.id === skillId);
+  if (!other) {
+    // Orphaned session (its skill no longer exists): clear it and carry on.
+    discardSession();
+    return begin(skillId);
+  }
+  const elapsed = elapsedOf(a);
+  const state = a.runningSince != null ? 'running' : 'paused';
+  haptics.warning();
+  Alert.alert(
+    `${other.name} session is ${state}`,
+    `${formatClock(elapsed)} so far. Only one session can run at a time.`,
+    [
+      {
+        text: elapsed >= MINUTE ? `Save it and start ${target?.name ?? 'this'}` : `Discard it and start ${target?.name ?? 'this'}`,
+        onPress: () => {
+          if (elapsed >= MINUTE) finishSession();
+          else discardSession();
+          begin(skillId);
+        },
+      },
+      { text: `Open ${other.name} timer`, onPress: () => router.push('/timer') },
+      { text: 'Cancel', style: 'cancel' },
+    ],
+  );
 }
 
 export function togglePause() {

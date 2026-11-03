@@ -147,8 +147,6 @@ export default function SkillScreen() {
           <Button
             size="md"
             label={active?.skillId === skill.id ? 'Open timer' : 'Start session'}
-            disabled={!!active && active.skillId !== skill.id}
-            accessibilityHint={active && active.skillId !== skill.id ? 'Finish your other session first' : undefined}
             style={{ flex: 1 }}
             onPress={() => startSession(skill.id)}
           />
