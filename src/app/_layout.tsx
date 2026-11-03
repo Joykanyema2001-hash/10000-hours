@@ -39,7 +39,7 @@ export default function RootLayout() {
     setupNotificationChannel().catch(() => {});
     const replan = () => {
       const s = useStore.getState();
-      if (s.skills.length) scheduleNudge(todayMs(s), s.dailyGoalMin * 60_000).catch(() => {});
+      if (s.skills.length) scheduleNudge(todayMs(s), s.dailyGoalMin * 60_000, s.reminderHour).catch(() => {});
     };
     replan();
     const sub = AppState.addEventListener('change', (st) => st === 'active' && replan());
@@ -80,6 +80,9 @@ export default function RootLayout() {
         <Stack.Screen name="add-skill" />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
         <Stack.Screen name="skill/[id]" />
+        <Stack.Screen name="skill/edit/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
+        <Stack.Screen name="log/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
+        <Stack.Screen name="settings" />
         {/* A sheet: swipe down to tuck the running session away (native, velocity-aware, interruptible). */}
         <Stack.Screen name="timer" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.lime } }} />
       </Stack>

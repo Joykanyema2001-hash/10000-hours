@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../components/Button';
+import { IconButton } from '../../components/IconButton';
 import { GoalRing } from '../../components/GoalRing';
 import { PlayIcon, PlusIcon } from '../../components/Icons';
 import { PressableScale } from '../../components/PressableScale';
@@ -88,9 +89,12 @@ export default function Today() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24, gap: 20 }}>
         {/* Header: date + greeting, today's total and the goal ring */}
         <Animated.View entering={rise(0)} style={{ gap: 14 }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, letterSpacing: 0.6, color: colors.muted }}>
-            {`${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`.toUpperCase()}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: -10 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, letterSpacing: 0.6, color: colors.muted }}>
+              {`${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`.toUpperCase()}
+            </Text>
+            <IconButton kind="settings" onPress={() => router.push('/settings')} />
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
               <Text variant="label">{greeting(d)}. Today</Text>
@@ -171,6 +175,7 @@ export default function Today() {
               key={k.id}
               index={i}
               name={k.name}
+              icon={k.icon}
               live={active?.skillId === k.id}
               totalMs={skillTotalMs(state, k.id, now)}
               onPress={() => router.push(`/skill/${k.id}`)}

@@ -2,9 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { latestLevel } from './lib/levels';
+import { guessIcon } from './lib/skillIcons';
 import { DAY, HOUR, MINUTE, startOfDay } from './lib/time';
 
-export type Skill = { id: string; name: string; priorMs: number; createdAt: number };
+export type Skill = { id: string; name: string; priorMs: number; createdAt: number; icon?: string };
 export type Session = { id: string; skillId: string; start: number; end: number; ms: number };
 
 /**
@@ -29,7 +30,19 @@ type State = {
   /** Highest level (in hours) already celebrated per skill, so each pop-up shows once. */
   celebrated: Record<string, number>;
   markCelebrated: (skillId: string, hours: number) => void;
-  addSkill: (name: string, priorHours: number) => string;
+  /** Settings */
+  reminderHour: number | null;
+  hapticsOn: boolean;
+  minuteTicks: boolean;
+  setSetting: (patch: Partial<Pick<State, 'reminderHour' | 'hapticsOn' | 'minuteTicks' | 'dailyGoalMin'>>) => void;
+  addSkill: (name: string, priorHours: number, icon?: string) => string;
+  updateSkill: (id: string, patch: Partial<Pick<Skill, 'name' | 'icon' | 'priorMs'>>) => void;
+  /** Removes the skill and all of its sessions. Refused while it has a running session. */
+  deleteSkill: (id: string) => boolean;
+  /** Log time by hand, e.g. a session you forgot to time. */
+  logSession: (skillId: string, ms: number, end: number) => Session;
+  deleteSession: (id: string) => void;
+  resetAll: () => void;
   setDailyGoal: (min: number) => void;
   startSession: (skillId: string) => void;
   pause: () => void;
@@ -52,17 +65,50 @@ export const useStore = create<State>()(
       active: null,
       lastSkillId: null,
       celebrated: {},
+      reminderHour: 19,
+      hapticsOn: true,
+      minuteTicks: true,
+
+      setSetting: (patch) => set(patch),
 
       markCelebrated: (skillId, hours) => set((s) => ({ celebrated: { ...s.celebrated, [skillId]: hours } })),
 
-      addSkill: (name, priorHours) => {
+      addSkill: (name, priorHours, icon) => {
         const id = uid();
-        const skill: Skill = { id, name: name.trim(), priorMs: Math.max(0, priorHours) * HOUR, createdAt: Date.now() };
+        const skill: Skill = { id, name: name.trim(), priorMs: Math.max(0, priorHours) * HOUR, createdAt: Date.now(), icon };
         // Levels already earned before the app don't pop up.
         const already = latestLevel(Math.floor(skill.priorMs / HOUR))?.hours ?? 0;
         set((s) => ({ skills: [...s.skills, skill], lastSkillId: s.lastSkillId ?? id, celebrated: { ...s.celebrated, [id]: already } }));
         return id;
       },
+
+      updateSkill: (id, patch) =>
+        set((s) => ({ skills: s.skills.map((k) => (k.id === id ? { ...k, ...patch, name: (patch.name ?? k.name).trim() } : k)) })),
+
+      deleteSkill: (id) => {
+        if (get().active?.skillId === id) return false;
+        set((s) => {
+          const skills = s.skills.filter((k) => k.id !== id);
+          const { [id]: _, ...celebrated } = s.celebrated;
+          return {
+            skills,
+            sessions: s.sessions.filter((x) => x.skillId !== id),
+            celebrated,
+            lastSkillId: s.lastSkillId === id ? (skills[0]?.id ?? null) : s.lastSkillId,
+          };
+        });
+        return true;
+      },
+
+      logSession: (skillId, ms, end) => {
+        const session: Session = { id: uid(), skillId, start: end - ms, end, ms };
+        set((s) => ({ sessions: [...s.sessions, session] }));
+        return session;
+      },
+
+      deleteSession: (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
+
+      resetAll: () => set({ skills: [], sessions: [], active: null, lastSkillId: null, celebrated: {}, dailyGoalMin: 120 }),
 
       setDailyGoal: (min) => set({ dailyGoalMin: min }),
 
@@ -98,7 +144,16 @@ export const useStore = create<State>()(
     {
       name: 'tenk-v1',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({ skills, sessions, dailyGoalMin, active, lastSkillId, celebrated }) => ({ skills, sessions, dailyGoalMin, active, lastSkillId, celebrated }),
+      version: 1,
+      // v0 → v1: skills gain an icon; pick one from the name so existing skills aren't blank.
+      migrate: (persisted, version) => {
+        const p = persisted as Partial<State>;
+        if (version < 1 && Array.isArray(p.skills)) p.skills = p.skills.map((k) => ({ ...k, icon: k.icon ?? guessIcon(k.name) }));
+        return p as State;
+      },
+      partialize: ({ skills, sessions, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks }) => ({
+        skills, sessions, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks,
+      }),
     },
   ),
 );
@@ -163,4 +218,16 @@ export function dayTotals(s: Pick<State, 'sessions' | 'active'>, days = 7, now =
 
 export function allTimeMs(s: Pick<State, 'skills' | 'sessions' | 'active'>, now = Date.now()) {
   return s.skills.reduce((sum, k) => sum + skillTotalMs(s, k.id, now), 0);
+}
+
+/**
+ * Rate for the "you reach 10,000 in …" projection. Uses your recent average once
+ * there are at least 3 practice days in the last 14; before that, your daily goal
+ * (a 2-session average would project a meaningless, discouraging year).
+ */
+export function projectionRate(s: Pick<State, 'skills' | 'sessions' | 'dailyGoalMin'>, skillId: string, now = Date.now()) {
+  const since = now - 14 * DAY;
+  const days = new Set(s.sessions.filter((x) => x.skillId === skillId && x.end >= since).map((x) => startOfDay(x.end)));
+  if (days.size >= 3) return { ms: dailyRateMs(s, skillId, now), fromGoal: false };
+  return { ms: s.dailyGoalMin * MINUTE, fromGoal: true };
 }

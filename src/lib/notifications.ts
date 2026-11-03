@@ -7,7 +7,7 @@ import { formatDuration, HOUR, nextClockTime, withCommas } from './time';
  * Local notifications only (they work in Expo Go and need no server):
  *  - each whole hour reached during a running session (milestone copy at 10/100/1,000…)
  *  - daily goal reached during a session
- *  - one gentle evening nudge when today's goal isn't met (no streak guilt —
+ *  - one gentle daily nudge at the time chosen in Settings when today's goal isn't met (no streak guilt —
  *    "miss a day and nothing resets")
  */
 
@@ -23,7 +23,6 @@ Notifications.setNotificationHandler({
 
 const SESSION_IDS = ['session-hour-1', 'session-hour-2', 'session-hour-3', 'session-goal'];
 const NUDGE_ID = 'daily-nudge';
-const NUDGE_HOUR = 19;
 
 export async function setupNotificationChannel() {
   if (Platform.OS === 'android') {
@@ -81,15 +80,16 @@ export async function scheduleSessionAlerts(opts: { skillName: string; skillTota
 export const cancelSessionAlerts = () => cancel(SESSION_IDS);
 
 /** Re-plan the single evening nudge. Call on launch, on foreground and after each session. */
-export async function scheduleNudge(todayMs: number, goalMs: number) {
+export async function scheduleNudge(todayMs: number, goalMs: number, hour: number | null) {
   await cancel([NUDGE_ID]);
+  if (hour == null) return; // reminders turned off in Settings
   const perm = await Notifications.getPermissionsAsync().catch(() => null);
   if (!perm?.granted) return;
   const now = Date.now();
   const todayAt = new Date(now);
-  todayAt.setHours(NUDGE_HOUR, 0, 0, 0);
+  todayAt.setHours(hour, 0, 0, 0);
   const remindToday = todayMs < goalMs && todayAt.getTime() > now;
-  const when = remindToday ? todayAt : nextClockTime(NUDGE_HOUR, 0, todayAt.getTime());
+  const when = remindToday ? todayAt : nextClockTime(hour, 0, todayAt.getTime());
   const body = remindToday
     ? `${formatDuration(goalMs - todayMs)} left of today's goal. Even ten minutes counts.`
     : 'Ten minutes today still adds up. Your hours are waiting.';

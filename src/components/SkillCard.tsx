@@ -5,11 +5,12 @@ import { colors, fonts } from '../theme';
 import { PlayIcon } from './Icons';
 import { PressableScale } from './PressableScale';
 import { ProgressBar } from './ProgressBar';
+import { SkillIcon } from './SkillIcon';
 import { Text } from './Text';
 
-type Props = { name: string; totalMs: number; index: number; onPress: () => void; onStart?: () => void; live?: boolean };
+type Props = { name: string; icon?: string; totalMs: number; index: number; onPress: () => void; onStart?: () => void; live?: boolean };
 
-export function SkillCard({ name, totalMs, index, onPress, onStart, live }: Props) {
+export function SkillCard({ name, icon, totalMs, index, onPress, onStart, live }: Props) {
   const reduce = useReducedMotion();
   const hours = Math.floor(totalMs / HOUR);
   return (
@@ -21,6 +22,7 @@ export function SkillCard({ name, totalMs, index, onPress, onStart, live }: Prop
         accessibilityHint="Opens skill progress"
         style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, backgroundColor: colors.white, borderWidth: 3, borderColor: colors.ink, borderRadius: 20 }}
       >
+        <SkillIcon icon={icon} size={44} />
         <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
             <Text style={{ flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 24 }} numberOfLines={1}>{name}</Text>

@@ -37,7 +37,7 @@ export default function Timer() {
   const prevMinute = useRef(Math.floor(elapsed / MINUTE));
   useEffect(() => {
     const minute = Math.floor(elapsed / MINUTE);
-    if (running && minute > prevMinute.current) haptics.tick();
+    if (running && minute > prevMinute.current && useStore.getState().minuteTicks) haptics.tick();
     prevMinute.current = minute;
   }, [elapsed, running]);
 

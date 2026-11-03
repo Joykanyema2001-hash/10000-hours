@@ -9,6 +9,7 @@ import { PressableScale } from '../../components/PressableScale';
 import { TAB_BAR_HEIGHT } from '../../components/TabBar';
 import { Text } from '../../components/Text';
 import { haptics } from '../../lib/haptics';
+import { iconFor } from '../../lib/skillIcons';
 import { latestLevel, LEVELS, nextLevel, withArticle } from '../../lib/levels';
 import { HOUR, withCommas } from '../../lib/time';
 import { skillTotalMs, useStore } from '../../store';
@@ -64,7 +65,10 @@ export default function Milestones() {
                   }}
                   style={{ paddingHorizontal: 16, height: 40, justifyContent: 'center', borderRadius: 999, borderWidth: 2, borderColor: colors.ink, backgroundColor: on ? colors.ink : 'transparent' }}
                 >
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: on ? colors.lime : colors.ink }}>{k.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {(() => { const { Icon } = iconFor(k.icon); return <Icon size={18} color={on ? colors.lime : colors.ink} strokeWidth={2.25} />; })()}
+                    <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: on ? colors.lime : colors.ink }}>{k.name}</Text>
+                  </View>
                 </PressableScale>
               );
             })}

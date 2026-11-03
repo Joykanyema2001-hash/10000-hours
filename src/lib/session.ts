@@ -54,7 +54,7 @@ export function finishSession(): Session | null {
       // Banner carries the success haptic on the same frame it appears.
       notify({ kind: 'logged', title: `Logged ${formatDuration(done.ms)} of ${skill.name}`, body: `${withCommas(Math.floor(skillTotalMs(after, skill.id) / HOUR))} hours in total.` });
     }
-    scheduleNudge(todayMs(after), after.dailyGoalMin * MINUTE).catch(() => {});
+    scheduleNudge(todayMs(after), after.dailyGoalMin * MINUTE, after.reminderHour).catch(() => {});
   }
   return done;
 }
@@ -65,3 +65,9 @@ export function discardSession() {
 }
 
 export const activeElapsed = () => elapsedOf(useStore.getState().active);
+
+/** Re-plan the daily reminder after settings or data change. */
+export function replanNudge() {
+  const s = useStore.getState();
+  scheduleNudge(todayMs(s), s.dailyGoalMin * MINUTE, s.skills.length ? s.reminderHour : null).catch(() => {});
+}
