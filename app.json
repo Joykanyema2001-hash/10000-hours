@@ -18,7 +18,8 @@
         "com.apple.security.application-groups": [
           "group.com.joykanyema.tenthousandhours"
         ]
-      }
+      },
+      "appleTeamId": "C6P5FN7KJ5"
     },
     "android": {
       "package": "com.joykanyema.tenthousandhours",
