@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BannerHost } from '../components/BannerHost';
 import { CelebrationHost } from '../components/CelebrationHost';
 import { SessionWatcher } from '../components/SessionWatcher';
+import { SplashHandoff } from '../components/SplashHandoff';
 import { notify } from '../lib/notify';
 import { scheduleNudge, setupNotificationChannel } from '../lib/notifications';
 import { todayMs, useStore } from '../store';
@@ -30,9 +31,6 @@ export default function RootLayout() {
   const hydrated = useHydrated();
   const ready = fontsLoaded && hydrated;
 
-  useEffect(() => {
-    if (ready) SplashScreen.hideAsync().catch(() => {});
-  }, [ready]);
 
   // Keep the single evening nudge accurate whenever the app comes back.
   useEffect(() => {
@@ -69,7 +67,7 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  if (!ready) return null;
+  if (!ready) return <SplashHandoff ready={false} />;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -91,6 +89,7 @@ export default function RootLayout() {
         <CelebrationHost />
         <BannerHost />
       </Overlay>
+      <SplashHandoff ready />
     </GestureHandlerRootView>
   );
 }
