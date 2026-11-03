@@ -39,3 +39,29 @@ Haptics only work on a physical device. Notifications are local (no server), so 
 npm run typecheck
 npx expo export --platform ios   # bundles the app; catches import/Babel errors
 ```
+
+## iPhone build (Live Activity, Dynamic Island, widgets)
+
+These need a development build instead of Expo Go. EAS builds it in the cloud; no Xcode needed.
+
+| Path | What it is |
+| --- | --- |
+| `targets/widget/` | Widget extension (SwiftUI): home-screen widget (small, medium), lock-screen widgets, and the session Live Activity / Dynamic Island |
+| `modules/tenk-activity/` | Local Expo module that starts, updates and ends the Live Activity (ActivityKit) |
+| `src/lib/nativeSync.ts` | Sends the running session to the Live Activity and today's data to the widget (shared App Group) |
+
+One-time setup on your Mac:
+
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest init
+npx eas-cli@latest device:create
+```
+
+Build and install:
+
+```bash
+npx eas-cli@latest build --platform ios --profile development
+```
+
+Then run `npx expo start` and open the 10,000 Hours app (not Expo Go) on the phone.

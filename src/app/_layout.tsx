@@ -13,6 +13,7 @@ import { BannerHost } from '../components/BannerHost';
 import { CelebrationHost } from '../components/CelebrationHost';
 import { SessionWatcher } from '../components/SessionWatcher';
 import { SplashHandoff } from '../components/SplashHandoff';
+import { startNativeSync, syncNative } from '../lib/nativeSync';
 import { notify } from '../lib/notify';
 import { scheduleNudge, setupNotificationChannel } from '../lib/notifications';
 import { todayMs, useStore } from '../store';
@@ -40,9 +41,16 @@ export default function RootLayout() {
       if (s.skills.length) scheduleNudge(todayMs(s), s.dailyGoalMin * 60_000, s.reminderHour).catch(() => {});
     };
     replan();
-    const sub = AppState.addEventListener('change', (st) => st === 'active' && replan());
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'active') return;
+      replan();
+      syncNative(); // refresh the hour window and today's widget after time away
+    });
     return () => sub.remove();
   }, []);
+
+  // Lock screen / Dynamic Island Live Activity and home-screen widget (dev and store builds only).
+  useEffect(() => startNativeSync(), []);
 
   // A notification that arrives while the app is open becomes a branded banner, not an iOS one.
   // Session alerts are skipped here because SessionWatcher raises those itself.

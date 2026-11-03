@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useNow } from '../lib/hooks';
 import { latestLevel } from '../lib/levels';
+import { syncNative } from '../lib/nativeSync';
 import { celebrate, notify } from '../lib/notify';
 import { formatDuration, HOUR, MINUTE, withCommas } from '../lib/time';
 import { skillTotalMs, todayMs, useStore } from '../store';
@@ -40,6 +41,7 @@ export function SessionWatcher() {
     if (prev && prev.id === activeSkill.id && activeHours > prev.hours && latestLevel(activeHours)?.hours !== activeHours) {
       notify({ kind: 'hour', title: `Hour ${withCommas(activeHours)} of ${activeSkill.name}`, body: 'Another hour in the bank. Keep going.', href: '/timer' });
     }
+    if (prev && prev.id === activeSkill.id && activeHours > prev.hours) syncNative(); // next hour's progress bar
     prevHours.current = { id: activeSkill.id, hours: activeHours };
   }, [activeSkill?.id, activeHours]);
 

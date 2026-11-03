@@ -9,7 +9,16 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.joykanyema.tenthousandhours"
+      "bundleIdentifier": "com.joykanyema.tenthousandhours",
+      "infoPlist": {
+        "NSSupportsLiveActivities": true,
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.joykanyema.tenthousandhours"
+        ]
+      }
     },
     "android": {
       "package": "com.joykanyema.tenthousandhours",
@@ -41,7 +50,9 @@
         {
           "color": "#0C0B2B"
         }
-      ]
+      ],
+      "expo-dev-client",
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": false

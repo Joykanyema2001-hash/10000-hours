@@ -106,3 +106,16 @@ export function guessIcon(name: string): string {
   for (const [re, key] of KEYWORDS) if (re.test(name)) return key;
   return DEFAULT_ICON;
 }
+
+/** SF Symbols used by the iOS widget and Live Activity (Lucide icons can't run there). */
+const SF_SYMBOLS: Record<string, string> = {
+  guitar: 'guitars', piano: 'pianokeys', drum: 'music.note', mic: 'music.mic', music: 'music.note',
+  languages: 'character.bubble', book: 'book.fill', feather: 'pencil.line', pen: 'pencil.tip', brush: 'paintbrush.fill',
+  palette: 'paintpalette.fill', camera: 'camera.fill', film: 'film', code: 'chevron.left.forwardslash.chevron.right',
+  terminal: 'apple.terminal', calculator: 'function', brain: 'brain.head.profile', chess: 'crown.fill', gamepad: 'gamecontroller.fill',
+  football: 'soccerball', ball: 'basketball.fill', running: 'figure.run', bike: 'bicycle', swim: 'figure.pool.swim',
+  gym: 'dumbbell.fill', climb: 'mountain.2.fill', fight: 'figure.boxing', activity: 'figure.yoga', cooking: 'fork.knife',
+  craft: 'hammer.fill', sewing: 'scissors', garden: 'leaf.fill', driving: 'car.fill', target: 'target', trophy: 'trophy.fill',
+};
+
+export const sfSymbolFor = (key?: string) => SF_SYMBOLS[key ?? ''] ?? 'clock.fill';
