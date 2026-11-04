@@ -57,6 +57,34 @@
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.joykanyema.tenthousandhours.widget",
+                  "targetName": "TenKWidget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.joykanyema.tenthousandhours"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "bd96eb17-ebb2-41ae-af7c-05fb8e46cccc"
+      }
+    },
+    "owner": "joykanye-2"
   }
 }
