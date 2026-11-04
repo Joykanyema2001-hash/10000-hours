@@ -153,7 +153,7 @@ export default function Today() {
         {upcoming ? (
           <Animated.View entering={rise(200)}>
             <PressableScale
-              onPress={() => router.push({ pathname: '/(tabs)/milestones', params: { skill: upcoming.skill.id } })}
+              onPress={() => router.push({ pathname: '/milestones', params: { skill: upcoming.skill.id } })}
               accessibilityRole="button"
               accessibilityLabel={`Next milestone: ${upcoming.skill.name}, ${withCommas(Math.ceil(upcoming.leftH))} hours until ${upcoming.lvl.name}`}
               style={{ backgroundColor: colors.lime, borderWidth: 3, borderColor: colors.ink, borderRadius: 20, padding: 16, gap: 10 }}

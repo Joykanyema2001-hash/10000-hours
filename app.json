@@ -87,6 +87,14 @@
         "projectId": "bd96eb17-ebb2-41ae-af7c-05fb8e46cccc"
       }
     },
-    "owner": "joykanye-2"
+    "owner": "joykanye-2",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bd96eb17-ebb2-41ae-af7c-05fb8e46cccc",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    }
   }
 }

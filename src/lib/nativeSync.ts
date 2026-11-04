@@ -1,5 +1,6 @@
 import { ExtensionStorage } from '@bacons/apple-targets';
 import { Platform } from 'react-native';
+import { create } from 'zustand';
 import { TenkActivity } from '../../modules/tenk-activity';
 import { elapsedOf, skillTotalMs, todayMs, useStore } from '../store';
 import { sfSymbolFor } from './skillIcons';
@@ -10,18 +11,35 @@ import { HOUR, MINUTE, startOfDay } from './time';
  * widget in step with the app. Both are no-ops in Expo Go, on Android and on web.
  */
 
+/** What the Live Activity last did, shown in Settings so problems aren't silent. */
+export const useLiveActivityStatus = create<{ status: string }>()(() => ({ status: 'Not checked yet. Start a session to test it.' }));
+const setStatus = (status: string) => useLiveActivityStatus.setState({ status });
+
+export function checkLiveActivitySupport() {
+  if (Platform.OS !== 'ios') return setStatus('Only on iPhone.');
+  if (!TenkActivity) return setStatus("Not in this app version. Expo Go can't show it; use your own build or TestFlight.");
+  try {
+    if (!TenkActivity.isSupported()) setStatus('Turned off: Settings → 10,000 Hours → Live Activities.');
+    else if (!useStore.getState().active) setStatus('Ready. Start a session, then lock the phone or go home.');
+  } catch (e) {
+    setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 export const APP_GROUP = 'group.com.joykanyema.tenthousandhours';
 const storage = new ExtensionStorage(APP_GROUP);
 
 export function syncLiveActivity() {
-  if (Platform.OS !== 'ios' || !TenkActivity) return;
+  if (Platform.OS !== 'ios' || !TenkActivity) return checkLiveActivitySupport();
   const s = useStore.getState();
   const a = s.active;
   const skill = a ? s.skills.find((k) => k.id === a.skillId) : undefined;
   if (!a || !skill) {
     TenkActivity.end().catch(() => {});
+    checkLiveActivitySupport();
     return;
   }
+  if (!TenkActivity.isSupported()) return setStatus('Turned off: Settings → 10,000 Hours → Live Activities.');
   const now = Date.now();
   const elapsed = elapsedOf(a, now);
   const total = skillTotalMs(s, skill.id, now);
@@ -34,7 +52,9 @@ export function syncLiveActivity() {
     nextHour: Math.floor(total / HOUR) + 1,
     hourStart: now - intoHour,
     hourEnd: now - intoHour + HOUR,
-  }).catch(() => {});
+  })
+    .then(() => setStatus(`Showing ${skill.name} on the lock screen and Dynamic Island.`))
+    .catch((e: unknown) => setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`));
 }
 
 export function syncWidget() {

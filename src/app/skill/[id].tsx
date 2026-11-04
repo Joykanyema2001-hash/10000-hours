@@ -25,6 +25,7 @@ export default function SkillScreen() {
   const active = useStore((s) => s.active);
   const goalMin = useStore((s) => s.dailyGoalMin);
   const deleteSession = useStore((s) => s.deleteSession);
+  const allNodes = useStore((s) => s.nodes);
   const liveHere = active?.skillId === id && active.runningSince != null;
   const now = useNow(liveHere ? 1000 : 60_000);
 
@@ -48,6 +49,12 @@ export default function SkillScreen() {
   const fasterYear = projectedYear(remaining, rate + 30 * 60_000, now);
   const rise = (d: number) => (reduce ? undefined : FadeInDown.delay(d).springify().dampingRatio(1).duration(400));
   const mine = sessions.filter((x) => x.skillId === skill.id).sort((a, b) => b.end - a.end);
+  const skillNodes = allNodes.filter((n) => n.skillId === skill.id);
+  const tree = {
+    total: skillNodes.length,
+    mastered: skillNodes.filter((n) => n.status === 'mastered').length,
+    learning: skillNodes.filter((n) => n.status === 'learning').slice(0, 3).map((n) => n.title),
+  };
   const dayLabel = (t: number) => {
     const days = Math.round((startOfDay(now) - startOfDay(t)) / (24 * HOUR));
     if (days === 0) return 'Today';
@@ -108,6 +115,35 @@ export default function SkillScreen() {
           </Animated.View>
         ) : null}
 
+        <Animated.View entering={rise(180)}>
+          <PressableScale
+            onPress={() => router.push({ pathname: '/tree/[id]', params: { id: skill.id } })}
+            accessibilityRole="button"
+            accessibilityLabel={`${skill.name} skill tree, ${tree.mastered} of ${tree.total} steps mastered. Open the tree`}
+            style={{ padding: 16, backgroundColor: colors.ink, borderRadius: 20, gap: 10 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <Text style={{ fontFamily: fonts.displaySemi, fontSize: 20, color: colors.lime }}>Skill tree</Text>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.paper }}>
+                {tree.total ? `${tree.mastered}/${tree.total} mastered` : 'Start mapping →'}
+              </Text>
+            </View>
+            {tree.learning.length ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {tree.learning.map((t) => (
+                  <View key={t} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.lime }}>
+                    <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13 }}>◐ {t}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 19, color: colors.paper }}>
+                {tree.total ? 'Open the tree to pick what you are learning next.' : `Break ${skill.name} into the things you are learning, and branch off as you build on them.`}
+              </Text>
+            )}
+          </PressableScale>
+        </Animated.View>
+
         <Animated.View entering={rise(200)} style={{ gap: 4, marginTop: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <Text variant="heading" accessibilityRole="header">Sessions</Text>
@@ -133,7 +169,14 @@ export default function SkillScreen() {
                 accessibilityHint="Opens an option to delete this session"
                 style={{ minHeight: 50, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: colors.divider }}
               >
-                <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 16 }}>{dayLabel(x.end)}</Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16 }}>{dayLabel(x.end)}</Text>
+                  {x.nodeId || x.note ? (
+                    <Text variant="caption" numberOfLines={2}>
+                      {[allNodes.find((n) => n.id === x.nodeId)?.title, x.note].filter(Boolean).join(' · ')}
+                    </Text>
+                  ) : null}
+                </View>
                 <Text style={{ fontFamily: fonts.displaySemi, fontSize: 18 }}>{formatDuration(x.ms)}</Text>
               </PressableScale>
             ))
@@ -143,7 +186,7 @@ export default function SkillScreen() {
 
         <View style={{ flex: 1, minHeight: 16 }} />
         <Animated.View entering={rise(220)} style={{ flexDirection: 'row', gap: 12 }}>
-          <Button variant="outline" size="md" label="Milestones" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/(tabs)/milestones', params: { skill: skill.id } })} />
+          <Button variant="outline" size="md" label="Milestones" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/milestones', params: { skill: skill.id } })} />
           <Button
             size="md"
             label={active?.skillId === skill.id ? 'Open timer' : 'Start session'}

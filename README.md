@@ -86,3 +86,29 @@ npx eas-cli@latest build --platform ios --profile production --auto-submit
 ```
 
 This creates the App Store signing (app + widget, with Sign in with Apple), builds in the cloud and uploads to TestFlight. After that, later builds can also be started from expo.dev.
+
+## Skill trees
+
+Each skill has a tree of steps (e.g. Open chords → G, C, D → Barre chords), each to learn / learning / mastered, with notes.
+Sessions can be tagged with the step they were spent on, plus a note.
+
+| Path | What it is |
+| --- | --- |
+| `src/lib/treeLayout.ts` | Pure top-down layout: parents centred over children, no overlaps |
+| `src/components/TreeCanvas.tsx` | Pan / pinch / double-tap canvas (gesture-handler + Reanimated) |
+| `src/app/tree/[id].tsx`, `src/app/step/[id].tsx` | Tree screen and step editor |
+| `src/app/session-note/[id].tsx` | "What did you work on?" after finishing a session |
+| `supabase/002_skill_trees.sql` | Cloud tables for steps and session notes. **Run once in Supabase** |
+
+## Over-the-air updates (EAS Update)
+
+JavaScript, styling, text and image changes can ship without a new build or App Store review:
+
+```bash
+npx eas-cli@latest update --channel production --message "What changed"
+```
+
+Installed apps download it in the background and use it the next time they're opened.
+`runtimeVersion` uses the **fingerprint** policy: any native change (Swift in `targets/` or `modules/`,
+a new native library, native config) changes the fingerprint, so older builds stop receiving updates
+until a new build is installed. Native changes always need `eas build`.

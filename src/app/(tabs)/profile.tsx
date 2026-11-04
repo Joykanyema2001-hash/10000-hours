@@ -3,19 +3,20 @@ import { useState } from 'react';
 import { Alert, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
-import { AppleSignInButton } from '../components/AppleSignInButton';
-import { Button } from '../components/Button';
-import { IconButton } from '../components/IconButton';
-import { PressableScale } from '../components/PressableScale';
-import { Text } from '../components/Text';
-import { deleteAccount, initials, signOut, updateDisplayName, useAuth } from '../lib/auth';
-import { haptics } from '../lib/haptics';
-import { useNow } from '../lib/hooks';
-import { notify } from '../lib/notify';
-import { syncNow, useSync } from '../lib/sync';
-import { HOUR, startOfDay, withCommas } from '../lib/time';
-import { allTimeMs, useStore } from '../store';
-import { colors, fonts } from '../theme';
+import { AppleSignInButton } from '../../components/AppleSignInButton';
+import { Button } from '../../components/Button';
+import { IconButton } from '../../components/IconButton';
+import { PressableScale } from '../../components/PressableScale';
+import { TAB_BAR_HEIGHT } from '../../components/TabBar';
+import { Text } from '../../components/Text';
+import { deleteAccount, initials, signOut, updateDisplayName, useAuth } from '../../lib/auth';
+import { haptics } from '../../lib/haptics';
+import { useNow } from '../../lib/hooks';
+import { notify } from '../../lib/notify';
+import { syncNow, useSync } from '../../lib/sync';
+import { HOUR, startOfDay, withCommas } from '../../lib/time';
+import { allTimeMs, useStore } from '../../store';
+import { colors, fonts } from '../../theme';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -93,11 +94,10 @@ export default function Profile() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 40, gap: 22 }} keyboardShouldPersistTaps="handled">
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: TAB_BAR_HEIGHT + 32, gap: 22 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <IconButton kind="back" onPress={() => router.back()} />
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18 }} accessibilityRole="header">Profile</Text>
+          <Text style={{ fontFamily: fonts.display, fontSize: 32, lineHeight: 36 }} accessibilityRole="header">Profile</Text>
           <IconButton kind="settings" onPress={() => router.push('/settings')} />
         </View>
 

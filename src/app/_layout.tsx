@@ -102,8 +102,11 @@ export default function RootLayout() {
         <Stack.Screen name="skill/[id]" />
         <Stack.Screen name="skill/edit/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="log/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
+        <Stack.Screen name="tree/[id]" />
+        <Stack.Screen name="step/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
+        <Stack.Screen name="session-note/[id]" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="milestones" />
         <Stack.Screen name="settings" />
-        <Stack.Screen name="profile" />
         <Stack.Screen name="import" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         {/* A sheet: swipe down to tuck the running session away (native, velocity-aware, interruptible). */}
         <Stack.Screen name="timer" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.lime } }} />

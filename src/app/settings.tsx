@@ -11,6 +11,7 @@ import { PressableScale } from '../components/PressableScale';
 import { Text } from '../components/Text';
 import { GOALS, REMINDER_HOURS } from '../lib/goals';
 import { haptics } from '../lib/haptics';
+import { checkLiveActivitySupport, useLiveActivityStatus } from '../lib/nativeSync';
 import { cancelSessionAlerts } from '../lib/notifications';
 import { notify } from '../lib/notify';
 import { replanNudge } from '../lib/session';
@@ -63,6 +64,9 @@ export default function Settings() {
   const minuteTicks = useStore((s) => s.minuteTicks);
   const setSetting = useStore((s) => s.setSetting);
   const counts = useStore(useShallow((s) => ({ skills: s.skills.length, sessions: s.sessions.length })));
+
+  const liveStatus = useLiveActivityStatus((s) => s.status);
+  useEffect(() => checkLiveActivitySupport(), []);
 
   // Read back what's actually saved on the phone, so a saving problem is visible.
   const [saved, setSaved] = useState('Checking what is saved on this phone…');
@@ -159,6 +163,10 @@ export default function Settings() {
           <Row label="Minute ticks" detail="A light tap each minute while timing" last>
             <Toggle label="Minute ticks" value={minuteTicks} onChange={(v) => setSetting({ minuteTicks: v })} />
           </Row>
+        </Section>
+
+        <Section title="Lock screen & Dynamic Island" footer="Shows your running session as a live timer. Needs your own build or TestFlight, not Expo Go.">
+          <Row label="Live Activity" detail={liveStatus} last />
         </Section>
 
         <Section title="Your data" footer={saved}>

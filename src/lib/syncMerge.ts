@@ -1,4 +1,4 @@
-import type { Session, Skill } from '../store';
+import type { NodeStatus, Session, Skill, SkillNode, Tombstones } from '../store';
 
 /** Rows as stored in Supabase (see supabase/schema.sql). */
 export type RemoteSkill = {
@@ -18,15 +18,33 @@ export type RemoteSession = {
   start_ms: number;
   end_ms: number;
   ms: number;
+  node_id?: string | null;
+  note?: string | null;
+  updated_at_ms?: number;
+  deleted: boolean;
+};
+export type RemoteNode = {
+  user_id?: string;
+  id: string;
+  skill_id: string;
+  parent_id: string | null;
+  title: string;
+  notes: string | null;
+  status: NodeStatus;
+  created_at_ms: number;
+  updated_at_ms: number;
+  mastered_at_ms: number | null;
   deleted: boolean;
 };
 
 export type MergeResult = {
   skills: Skill[];
   sessions: Session[];
+  nodes: SkillNode[];
   pushSkills: RemoteSkill[];
   pushSessions: RemoteSession[];
-  sentTombstones: { skills: string[]; sessions: string[] };
+  pushNodes: RemoteNode[];
+  sentTombstones: Tombstones;
 };
 
 const toRemoteSkill = (k: Skill): RemoteSkill => ({
@@ -52,6 +70,9 @@ const toRemoteSession = (x: Session): RemoteSession => ({
   start_ms: Math.round(x.start),
   end_ms: Math.round(x.end),
   ms: Math.round(x.ms),
+  node_id: x.nodeId ?? null,
+  note: x.note ?? null,
+  updated_at_ms: Math.round(x.updatedAt ?? x.end),
   deleted: false,
 });
 const fromRemoteSession = (r: RemoteSession): Session => ({
@@ -60,6 +81,32 @@ const fromRemoteSession = (r: RemoteSession): Session => ({
   start: Number(r.start_ms),
   end: Number(r.end_ms),
   ms: Number(r.ms),
+  nodeId: r.node_id ?? null,
+  note: r.note ?? null,
+  updatedAt: Number(r.updated_at_ms ?? r.end_ms),
+});
+const toRemoteNode = (n: SkillNode): RemoteNode => ({
+  id: n.id,
+  skill_id: n.skillId,
+  parent_id: n.parentId,
+  title: n.title,
+  notes: n.notes ?? null,
+  status: n.status,
+  created_at_ms: n.createdAt,
+  updated_at_ms: n.updatedAt,
+  mastered_at_ms: n.masteredAt ?? null,
+  deleted: false,
+});
+const fromRemoteNode = (r: RemoteNode): SkillNode => ({
+  id: r.id,
+  skillId: r.skill_id,
+  parentId: r.parent_id,
+  title: r.title,
+  notes: r.notes ?? undefined,
+  status: r.status,
+  createdAt: Number(r.created_at_ms),
+  updatedAt: Number(r.updated_at_ms),
+  masteredAt: r.mastered_at_ms == null ? null : Number(r.mastered_at_ms),
 });
 
 /**
@@ -71,9 +118,12 @@ const fromRemoteSession = (r: RemoteSession): Session => ({
  * Pure function: no network, no store access, so it can be tested on its own.
  */
 export function mergeForSync(
-  local: { skills: Skill[]; sessions: Session[]; tombstones: { skills: string[]; sessions: string[] } },
-  remote: { skills: RemoteSkill[]; sessions: RemoteSession[] },
+  local: { skills: Skill[]; sessions: Session[]; nodes?: SkillNode[]; tombstones: Partial<Tombstones> & { skills: string[]; sessions: string[] } },
+  remote: { skills: RemoteSkill[]; sessions: RemoteSession[]; nodes?: RemoteNode[] },
 ): MergeResult {
+  const localNodesIn = local.nodes ?? [];
+  const remoteNodesIn = remote.nodes ?? [];
+  const nodeTombs = local.tombstones.nodes ?? [];
   const remoteSkills = new Map(remote.skills.map((r) => [r.id, r]));
   const remoteSessions = new Map(remote.sessions.map((r) => [r.id, r]));
 
@@ -137,19 +187,68 @@ export function mergeForSync(
       continue;
     }
     if (r?.deleted) continue;
-    if (l) {
+    if (l && r) {
+      // Sessions only change by gaining a step or a note: the most recent edit wins.
+      const lt = l.updatedAt ?? l.end;
+      const rt = Number(r.updated_at_ms ?? r.end_ms);
+      if (r.skill_id !== l.skillId || lt > rt) {
+        sessions.push(l);
+        pushSessions.push(toRemoteSession(l));
+      } else {
+        sessions.push(rt > lt ? fromRemoteSession(r) : l);
+      }
+    } else if (l) {
       sessions.push(l);
-      if (!r || r.skill_id !== l.skillId) pushSessions.push(toRemoteSession(l));
+      pushSessions.push(toRemoteSession(l));
     } else if (r) {
       sessions.push(fromRemoteSession(r));
+    }
+  }
+
+  // 4. Skill-tree steps: same rules as skills (newest edit wins, deletions stick).
+  const nodes: SkillNode[] = [];
+  const pushNodes: RemoteNode[] = [];
+  const deadNodes = new Set(nodeTombs);
+  const remoteNodes = new Map(remoteNodesIn.map((r) => [r.id, r]));
+  const localNodes = new Map(localNodesIn.map((n) => [n.id, { ...n, skillId: mapId(n.skillId) }]));
+  for (const id of new Set([...localNodes.keys(), ...remoteNodes.keys()])) {
+    const l = localNodes.get(id);
+    const r = remoteNodes.get(id);
+    const skillId = l?.skillId ?? r?.skill_id;
+    if (deadNodes.has(id) || !skillId || !liveSkillIds.has(skillId)) {
+      if (r && !r.deleted) pushNodes.push({ ...r, deleted: true, updated_at_ms: Date.now() });
+      continue;
+    }
+    if (r?.deleted) continue;
+    if (l && r) {
+      if (l.updatedAt > Number(r.updated_at_ms)) {
+        nodes.push(l);
+        pushNodes.push(toRemoteNode(l));
+      } else nodes.push(fromRemoteNode(r));
+    } else if (l) {
+      nodes.push(l);
+      pushNodes.push(toRemoteNode(l));
+    } else if (r) nodes.push(fromRemoteNode(r));
+  }
+  // A step whose parent vanished (deleted elsewhere) moves up to the top level rather than being lost.
+  const liveNodeIds = new Set(nodes.map((n) => n.id));
+  for (const n of nodes) {
+    if (n.parentId && !liveNodeIds.has(n.parentId)) {
+      n.parentId = null;
+      n.updatedAt = Date.now();
+      const i = pushNodes.findIndex((p) => p.id === n.id);
+      if (i >= 0) pushNodes[i] = toRemoteNode(n);
+      else pushNodes.push(toRemoteNode(n));
     }
   }
 
   return {
     skills,
     sessions,
+    nodes,
     pushSkills,
     pushSessions,
-    sentTombstones: { skills: local.tombstones.skills, sessions: local.tombstones.sessions },
+    pushNodes,
+    sentTombstones: { skills: local.tombstones.skills, sessions: local.tombstones.sessions, nodes: nodeTombs },
   };
 }

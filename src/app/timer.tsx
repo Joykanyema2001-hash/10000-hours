@@ -54,8 +54,9 @@ export default function Timer() {
     const done = () => {
       const fromHours = hoursAtStart;
       const id = skill.id;
-      finishSession();
-      router.replace({ pathname: '/skill/[id]', params: { id, from: String(fromHours) } });
+      const saved = finishSession();
+      if (saved) router.replace({ pathname: '/session-note/[id]', params: { id: saved.id, from: String(fromHours) } });
+      else router.replace({ pathname: '/skill/[id]', params: { id, from: String(fromHours) } });
     };
     if (elapsed < MINUTE) {
       haptics.warning();

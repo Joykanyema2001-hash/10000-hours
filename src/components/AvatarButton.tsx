@@ -15,7 +15,7 @@ export function AvatarButton() {
   const letters = initials(name);
   return (
     <PressableScale
-      onPress={() => router.push('/profile')}
+      onPress={() => router.navigate('/(tabs)/profile')}
       scaleTo={0.9}
       hitSlop={6}
       accessibilityRole="button"

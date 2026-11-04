@@ -7,11 +7,13 @@ import { Chip } from '../../components/Chip';
 import { Field } from '../../components/Field';
 import { IconButton } from '../../components/IconButton';
 import { SkillIcon } from '../../components/SkillIcon';
+import { StepPicker } from '../../components/StepPicker';
 import { Text } from '../../components/Text';
 import { haptics } from '../../lib/haptics';
 import { notify } from '../../lib/notify';
 import { replanNudge } from '../../lib/session';
 import { DAY, formatDuration, HOUR, MINUTE, withCommas } from '../../lib/time';
+import { useShallow } from 'zustand/react/shallow';
 import { skillTotalMs, useStore } from '../../store';
 import { colors, fonts } from '../../theme';
 
@@ -30,6 +32,9 @@ export default function LogTime() {
   const [minutes, setMinutes] = useState(30);
   const [custom, setCustom] = useState('');
   const [daysAgo, setDaysAgo] = useState(0);
+  const [stepId, setStepId] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const nodes = useStore(useShallow((s) => s.nodes.filter((n) => n.skillId === id)));
 
   if (!skill) return null;
   const customMin = Number(custom.replace(/[^0-9]/g, '')) || 0;
@@ -39,7 +44,8 @@ export default function LogTime() {
   const save = () => {
     if (!valid) return;
     const end = daysAgo === 0 ? Date.now() : Date.now() - daysAgo * DAY;
-    logSession(skill.id, total * MINUTE, end);
+    const saved = logSession(skill.id, total * MINUTE, end);
+    if (stepId || note.trim()) useStore.getState().updateSession(saved.id, { nodeId: stepId, note: note.trim() || null });
     const s = useStore.getState();
     notify({ kind: 'logged', title: `Logged ${formatDuration(total * MINUTE)} of ${skill.name}`, body: `${withCommas(Math.floor(skillTotalMs(s, skill.id) / HOUR))} hours in total.` });
     replanNudge();
@@ -101,6 +107,15 @@ export default function LogTime() {
               ))}
             </View>
           </View>
+
+          {nodes.length ? (
+            <View style={{ gap: 8 }}>
+              <Text variant="label">What did you work on? (optional)</Text>
+              <StepPicker nodes={nodes} value={stepId} onChange={setStepId} />
+            </View>
+          ) : null}
+
+          <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="What went well, what to fix…" returnKeyType="done" />
 
           <View style={{ flex: 1 }} />
           <Button label={valid ? `Log ${formatDuration(total * MINUTE)}` : 'Log time'} onPress={save} disabled={!valid} />

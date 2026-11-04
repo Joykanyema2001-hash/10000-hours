@@ -2,14 +2,14 @@ import { create } from 'zustand';
 import { useStore } from '../store';
 import { useAuth } from './auth';
 import { supabase } from './supabase';
-import { mergeForSync, type RemoteSession, type RemoteSkill } from './syncMerge';
+import { mergeForSync, type RemoteNode, type RemoteSession, type RemoteSkill } from './syncMerge';
 
 type SyncState = { syncing: boolean; lastSyncedAt: number | null; error: string | null };
 export const useSync = create<SyncState>()(() => ({ syncing: false, lastSyncedAt: null, error: null }));
 
 const PAGE = 1000;
 
-async function fetchAll<T>(table: 'skills' | 'sessions', userId: string): Promise<T[]> {
+async function fetchAll<T>(table: 'skills' | 'sessions' | 'nodes', userId: string): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase.from(table).select('*').eq('user_id', userId).range(from, from + PAGE - 1);
@@ -19,7 +19,7 @@ async function fetchAll<T>(table: 'skills' | 'sessions', userId: string): Promis
   }
 }
 
-async function upsertAll(table: 'skills' | 'sessions', rows: object[]) {
+async function upsertAll(table: 'skills' | 'sessions' | 'nodes', rows: object[]) {
   for (let i = 0; i < rows.length; i += 500) {
     const { error } = await supabase.from(table).upsert(rows.slice(i, i + 500), { onConflict: 'user_id,id' });
     if (error) throw new Error(error.message);
@@ -56,20 +56,22 @@ async function syncOnce() {
   useSync.setState({ syncing: true });
   try {
     const before = useStore.getState();
-    const snapshot = { skills: before.skills, sessions: before.sessions, tombstones: before.tombstones };
+    const snapshot = { skills: before.skills, sessions: before.sessions, nodes: before.nodes, tombstones: before.tombstones };
 
-    const [remoteSkills, remoteSessions, profileRes] = await Promise.all([
+    const [remoteSkills, remoteSessions, remoteNodes, profileRes] = await Promise.all([
       fetchAll<RemoteSkill>('skills', userId),
       fetchAll<RemoteSession>('sessions', userId),
+      fetchAll<RemoteNode>('nodes', userId),
       supabase.from('profiles').select('daily_goal_min').eq('id', userId).maybeSingle(),
     ]);
 
-    const result = mergeForSync(snapshot, { skills: remoteSkills, sessions: remoteSessions });
+    const result = mergeForSync(snapshot, { skills: remoteSkills, sessions: remoteSessions, nodes: remoteNodes });
     await upsertAll('skills', result.pushSkills.map((r) => ({ ...r, user_id: userId })));
     await upsertAll('sessions', result.pushSessions.map((r) => ({ ...r, user_id: userId })));
+    await upsertAll('nodes', result.pushNodes.map((r) => ({ ...r, user_id: userId })));
 
     const now = useStore.getState();
-    if (now.skills !== snapshot.skills || now.sessions !== snapshot.sessions || now.tombstones !== snapshot.tombstones) {
+    if (now.skills !== snapshot.skills || now.sessions !== snapshot.sessions || now.nodes !== snapshot.nodes || now.tombstones !== snapshot.tombstones) {
       again = true; // something changed while we were away; merge again with fresh data
       return;
     }
@@ -78,10 +80,13 @@ async function syncOnce() {
     if (snapshot.skills.length === 0 && typeof remoteGoal === 'number') useStore.getState().setDailyGoal(remoteGoal);
     else await supabase.from('profiles').upsert({ id: userId, daily_goal_min: now.dailyGoalMin });
 
-    useStore.getState().applySync(result.skills, result.sessions, result.sentTombstones);
+    useStore.getState().applySync(result.skills, result.sessions, result.nodes, result.sentTombstones);
     useSync.setState({ lastSyncedAt: Date.now(), error: null });
   } catch (e) {
-    useSync.setState({ error: e instanceof Error ? e.message : String(e) });
+    const msg = e instanceof Error ? e.message : String(e);
+    // The skill-tree tables come from supabase/002_skill_trees.sql; say so plainly if it hasn't been run.
+    const missingSchema = /nodes|node_id|updated_at_ms|note/.test(msg) && /exist|schema cache|column|relation/i.test(msg);
+    useSync.setState({ error: missingSchema ? 'Cloud database needs the skill-tree update (run supabase/002_skill_trees.sql in Supabase).' : msg });
   } finally {
     useSync.setState({ syncing: false });
   }
@@ -96,7 +101,7 @@ export function startSync() {
     timer = setTimeout(() => syncNow().catch(() => {}), 3000);
   };
   const unsubData = useStore.subscribe((s, p) => {
-    if (s.skills !== p.skills || s.sessions !== p.sessions || s.tombstones !== p.tombstones || s.dailyGoalMin !== p.dailyGoalMin) soon();
+    if (s.skills !== p.skills || s.sessions !== p.sessions || s.nodes !== p.nodes || s.tombstones !== p.tombstones || s.dailyGoalMin !== p.dailyGoalMin) soon();
   });
   const unsubAuth = useAuth.subscribe((s, p) => {
     if (s.session?.user.id && s.session.user.id !== p.session?.user.id) syncNow().catch(() => {});

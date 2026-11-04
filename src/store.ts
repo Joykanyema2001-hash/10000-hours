@@ -6,7 +6,32 @@ import { guessIcon } from './lib/skillIcons';
 import { DAY, HOUR, MINUTE, startOfDay } from './lib/time';
 
 export type Skill = { id: string; name: string; priorMs: number; createdAt: number; icon?: string; updatedAt?: number };
-export type Session = { id: string; skillId: string; start: number; end: number; ms: number };
+export type Session = {
+  id: string;
+  skillId: string;
+  start: number;
+  end: number;
+  ms: number;
+  /** Skill-tree step this session was spent on, if any. */
+  nodeId?: string | null;
+  note?: string | null;
+  updatedAt?: number;
+};
+
+/** A step in a skill's tree, e.g. "G major chord" under "Open chords". */
+export type NodeStatus = 'todo' | 'learning' | 'mastered';
+export type SkillNode = {
+  id: string;
+  skillId: string;
+  /** null = a top-level step directly under the skill. */
+  parentId: string | null;
+  title: string;
+  notes?: string;
+  status: NodeStatus;
+  createdAt: number;
+  updatedAt: number;
+  masteredAt?: number | null;
+};
 
 /**
  * A running session is stored as timestamps, never as a ticking counter,
@@ -26,13 +51,19 @@ export type ActiveSession = {
 type State = {
   skills: Skill[];
   sessions: Session[];
+  nodes: SkillNode[];
   dailyGoalMin: number;
   active: ActiveSession | null;
   lastSkillId: string | null;
   /** Deletions not yet sent to the cloud, so a synced copy can't bring them back. */
-  tombstones: { skills: string[]; sessions: string[] };
+  tombstones: Tombstones;
   /** Replace local data with a sync result and forget tombstones the cloud now has. */
-  applySync: (skills: Skill[], sessions: Session[], sentTombstones: { skills: string[]; sessions: string[] }) => void;
+  applySync: (skills: Skill[], sessions: Session[], nodes: SkillNode[], sentTombstones: Tombstones) => void;
+  addNode: (skillId: string, parentId: string | null, title: string) => string;
+  updateNode: (id: string, patch: Partial<Pick<SkillNode, 'title' | 'notes' | 'status' | 'parentId'>>) => void;
+  /** Deletes a step and everything below it. */
+  deleteNode: (id: string) => void;
+  updateSession: (id: string, patch: Partial<Pick<Session, 'nodeId' | 'note'>>) => void;
   /** Highest level (in hours) already celebrated per skill, so each pop-up shows once. */
   celebrated: Record<string, number>;
   markCelebrated: (skillId: string, hours: number) => void;
@@ -61,6 +92,16 @@ type State = {
   discard: () => void;
 };
 
+export type Tombstones = { skills: string[]; sessions: string[]; nodes: string[] };
+const noTombstones = (): Tombstones => ({ skills: [], sessions: [], nodes: [] });
+
+/** A step and all its descendants. */
+export function subtreeIds(nodes: SkillNode[], rootId: string): string[] {
+  const out = [rootId];
+  for (let i = 0; i < out.length; i++) for (const n of nodes) if (n.parentId === out[i]) out.push(n.id);
+  return out;
+}
+
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
 export const elapsedOf = (a: ActiveSession | null, now = Date.now()) =>
@@ -71,11 +112,12 @@ export const useStore = create<State>()(
     (set, get) => ({
       skills: [],
       sessions: [],
+      nodes: [],
       dailyGoalMin: 120,
       active: null,
       lastSkillId: null,
       celebrated: {},
-      tombstones: { skills: [], sessions: [] },
+      tombstones: noTombstones(),
       reminderHour: 19,
       hapticsOn: true,
       minuteTicks: true,
@@ -105,9 +147,11 @@ export const useStore = create<State>()(
           return {
             skills,
             sessions: s.sessions.filter((x) => x.skillId !== id),
+            nodes: s.nodes.filter((n) => n.skillId !== id),
             tombstones: {
               skills: [...s.tombstones.skills, id],
               sessions: [...s.tombstones.sessions, ...s.sessions.filter((x) => x.skillId === id).map((x) => x.id)],
+              nodes: [...s.tombstones.nodes, ...s.nodes.filter((n) => n.skillId === id).map((n) => n.id)],
             },
             celebrated,
             lastSkillId: s.lastSkillId === id ? (skills[0]?.id ?? null) : s.lastSkillId,
@@ -125,7 +169,39 @@ export const useStore = create<State>()(
       deleteSession: (id) =>
         set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id), tombstones: { ...s.tombstones, sessions: [...s.tombstones.sessions, id] } })),
 
-      applySync: (skills, sessions, sent) =>
+      addNode: (skillId, parentId, title) => {
+        const id = uid();
+        const now = Date.now();
+        const node: SkillNode = { id, skillId, parentId, title: title.trim(), status: 'todo', createdAt: now, updatedAt: now };
+        set((s) => ({ nodes: [...s.nodes, node] }));
+        return id;
+      },
+
+      updateNode: (id, patch) =>
+        set((s) => ({
+          nodes: s.nodes.map((n) => {
+            if (n.id !== id) return n;
+            const status = patch.status ?? n.status;
+            const masteredAt = status === 'mastered' ? (n.status === 'mastered' ? n.masteredAt : Date.now()) : null;
+            return { ...n, ...patch, title: (patch.title ?? n.title).trim(), masteredAt, updatedAt: Date.now() };
+          }),
+        })),
+
+      deleteNode: (id) =>
+        set((s) => {
+          const gone = new Set(subtreeIds(s.nodes, id));
+          return {
+            nodes: s.nodes.filter((n) => !gone.has(n.id)),
+            // Sessions keep their hours; they just stop pointing at a deleted step.
+            sessions: s.sessions.map((x) => (x.nodeId && gone.has(x.nodeId) ? { ...x, nodeId: null, updatedAt: Date.now() } : x)),
+            tombstones: { ...s.tombstones, nodes: [...s.tombstones.nodes, ...gone] },
+          };
+        }),
+
+      updateSession: (id, patch) =>
+        set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: Date.now() } : x)) })),
+
+      applySync: (skills, sessions, nodes, sent) =>
         set((s) => {
           // Data arriving from the cloud shouldn't replay level pop-ups already earned elsewhere.
           const celebrated = { ...s.celebrated };
@@ -136,16 +212,19 @@ export const useStore = create<State>()(
           }
           const sentSkills = new Set(sent.skills);
           const sentSessions = new Set(sent.sessions);
+          const sentNodes = new Set(sent.nodes);
           const active = s.active && skills.some((k) => k.id === s.active?.skillId) ? s.active : null;
           return {
             skills,
             sessions,
+            nodes,
             celebrated,
             active,
             lastSkillId: skills.some((k) => k.id === s.lastSkillId) ? s.lastSkillId : (skills[0]?.id ?? null),
             tombstones: {
               skills: s.tombstones.skills.filter((t) => !sentSkills.has(t)),
               sessions: s.tombstones.sessions.filter((t) => !sentSessions.has(t)),
+              nodes: s.tombstones.nodes.filter((t) => !sentNodes.has(t)),
             },
           };
         }),
@@ -166,7 +245,7 @@ export const useStore = create<State>()(
           };
         }),
 
-      resetAll: () => set({ skills: [], sessions: [], active: null, lastSkillId: null, celebrated: {}, dailyGoalMin: 120, tombstones: { skills: [], sessions: [] } }),
+      resetAll: () => set({ skills: [], sessions: [], nodes: [], active: null, lastSkillId: null, celebrated: {}, dailyGoalMin: 120, tombstones: noTombstones() }),
 
       setDailyGoal: (min) => set({ dailyGoalMin: min }),
 
@@ -210,7 +289,7 @@ export const useStore = create<State>()(
     {
       name: 'tenk-v1',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const p = persisted as Partial<State>;
         // v0 → v1: skills gain an icon; pick one from the name so existing skills aren't blank.
@@ -218,12 +297,17 @@ export const useStore = create<State>()(
         // v1 → v2: skills gain updatedAt for sync; deletions are tracked.
         if (version < 2) {
           if (Array.isArray(p.skills)) p.skills = p.skills.map((k) => ({ ...k, updatedAt: k.updatedAt ?? k.createdAt }));
-          p.tombstones = p.tombstones ?? { skills: [], sessions: [] };
+          p.tombstones = p.tombstones ?? noTombstones();
+        }
+        // v2 → v3: skill trees.
+        if (version < 3) {
+          p.nodes = p.nodes ?? [];
+          p.tombstones = { ...noTombstones(), ...(p.tombstones ?? {}) };
         }
         return p as State;
       },
-      partialize: ({ skills, sessions, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones }) => ({
-        skills, sessions, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones,
+      partialize: ({ skills, sessions, nodes, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones }) => ({
+        skills, sessions, nodes, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones,
       }),
     },
   ),
@@ -301,4 +385,11 @@ export function projectionRate(s: Pick<State, 'skills' | 'sessions' | 'dailyGoal
   const days = new Set(s.sessions.filter((x) => x.skillId === skillId && x.end >= since).map((x) => startOfDay(x.end)));
   if (days.size >= 3) return { ms: dailyRateMs(s, skillId, now), fromGoal: false };
   return { ms: s.dailyGoalMin * MINUTE, fromGoal: true };
+}
+
+/** Hours logged against one step (sessions where you picked it). */
+export function nodeMs(sessions: Session[], nodeId: string) {
+  let ms = 0;
+  for (const x of sessions) if (x.nodeId === nodeId) ms += x.ms;
+  return ms;
 }

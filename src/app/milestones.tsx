@@ -1,19 +1,19 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, Share, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from '../../components/Button';
-import { MilestoneRow } from '../../components/MilestoneRow';
-import { PressableScale } from '../../components/PressableScale';
-import { TAB_BAR_HEIGHT } from '../../components/TabBar';
-import { Text } from '../../components/Text';
-import { haptics } from '../../lib/haptics';
-import { iconFor } from '../../lib/skillIcons';
-import { latestLevel, LEVELS, nextLevel, withArticle } from '../../lib/levels';
-import { HOUR, withCommas } from '../../lib/time';
-import { skillTotalMs, useStore } from '../../store';
-import { colors, fonts } from '../../theme';
+import { Button } from '../components/Button';
+import { IconButton } from '../components/IconButton';
+import { MilestoneRow } from '../components/MilestoneRow';
+import { PressableScale } from '../components/PressableScale';
+import { Text } from '../components/Text';
+import { haptics } from '../lib/haptics';
+import { iconFor } from '../lib/skillIcons';
+import { latestLevel, LEVELS, nextLevel, withArticle } from '../lib/levels';
+import { HOUR, withCommas } from '../lib/time';
+import { skillTotalMs, useStore } from '../store';
+import { colors, fonts } from '../theme';
 
 export default function Milestones() {
   const reduce = useReducedMotion();
@@ -44,7 +44,8 @@ export default function Milestones() {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.paper }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24, gap: 16 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: insets.bottom + 32, gap: 16 }}>
+        <IconButton kind="back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} />
         <Text style={{ fontFamily: fonts.display, fontSize: 32, lineHeight: 36 }} accessibilityRole="header">
           {skill.name} milestones
         </Text>
