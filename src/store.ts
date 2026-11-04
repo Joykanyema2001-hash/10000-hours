@@ -5,7 +5,7 @@ import { latestLevel } from './lib/levels';
 import { guessIcon } from './lib/skillIcons';
 import { DAY, HOUR, MINUTE, startOfDay } from './lib/time';
 
-export type Skill = { id: string; name: string; priorMs: number; createdAt: number; icon?: string };
+export type Skill = { id: string; name: string; priorMs: number; createdAt: number; icon?: string; updatedAt?: number };
 export type Session = { id: string; skillId: string; start: number; end: number; ms: number };
 
 /**
@@ -27,6 +27,10 @@ type State = {
   dailyGoalMin: number;
   active: ActiveSession | null;
   lastSkillId: string | null;
+  /** Deletions not yet sent to the cloud, so a synced copy can't bring them back. */
+  tombstones: { skills: string[]; sessions: string[] };
+  /** Replace local data with a sync result and forget tombstones the cloud now has. */
+  applySync: (skills: Skill[], sessions: Session[], sentTombstones: { skills: string[]; sessions: string[] }) => void;
   /** Highest level (in hours) already celebrated per skill, so each pop-up shows once. */
   celebrated: Record<string, number>;
   markCelebrated: (skillId: string, hours: number) => void;
@@ -67,6 +71,7 @@ export const useStore = create<State>()(
       active: null,
       lastSkillId: null,
       celebrated: {},
+      tombstones: { skills: [], sessions: [] },
       reminderHour: 19,
       hapticsOn: true,
       minuteTicks: true,
@@ -77,7 +82,8 @@ export const useStore = create<State>()(
 
       addSkill: (name, priorHours, icon) => {
         const id = uid();
-        const skill: Skill = { id, name: name.trim(), priorMs: Math.max(0, priorHours) * HOUR, createdAt: Date.now(), icon };
+        const now = Date.now();
+        const skill: Skill = { id, name: name.trim(), priorMs: Math.max(0, priorHours) * HOUR, createdAt: now, updatedAt: now, icon };
         // Levels already earned before the app don't pop up.
         const already = latestLevel(Math.floor(skill.priorMs / HOUR))?.hours ?? 0;
         set((s) => ({ skills: [...s.skills, skill], lastSkillId: s.lastSkillId ?? id, celebrated: { ...s.celebrated, [id]: already } }));
@@ -85,7 +91,7 @@ export const useStore = create<State>()(
       },
 
       updateSkill: (id, patch) =>
-        set((s) => ({ skills: s.skills.map((k) => (k.id === id ? { ...k, ...patch, name: (patch.name ?? k.name).trim() } : k)) })),
+        set((s) => ({ skills: s.skills.map((k) => (k.id === id ? { ...k, ...patch, name: (patch.name ?? k.name).trim(), updatedAt: Date.now() } : k)) })),
 
       deleteSkill: (id) => {
         if (get().active?.skillId === id) return false;
@@ -95,6 +101,10 @@ export const useStore = create<State>()(
           return {
             skills,
             sessions: s.sessions.filter((x) => x.skillId !== id),
+            tombstones: {
+              skills: [...s.tombstones.skills, id],
+              sessions: [...s.tombstones.sessions, ...s.sessions.filter((x) => x.skillId === id).map((x) => x.id)],
+            },
             celebrated,
             lastSkillId: s.lastSkillId === id ? (skills[0]?.id ?? null) : s.lastSkillId,
           };
@@ -108,7 +118,33 @@ export const useStore = create<State>()(
         return session;
       },
 
-      deleteSession: (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
+      deleteSession: (id) =>
+        set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id), tombstones: { ...s.tombstones, sessions: [...s.tombstones.sessions, id] } })),
+
+      applySync: (skills, sessions, sent) =>
+        set((s) => {
+          // Data arriving from the cloud shouldn't replay level pop-ups already earned elsewhere.
+          const celebrated = { ...s.celebrated };
+          for (const k of skills) {
+            if (celebrated[k.id] !== undefined) continue;
+            const hours = Math.floor(skillTotalMs({ skills, sessions, active: s.active }, k.id) / HOUR);
+            celebrated[k.id] = latestLevel(hours)?.hours ?? 0;
+          }
+          const sentSkills = new Set(sent.skills);
+          const sentSessions = new Set(sent.sessions);
+          const active = s.active && skills.some((k) => k.id === s.active?.skillId) ? s.active : null;
+          return {
+            skills,
+            sessions,
+            celebrated,
+            active,
+            lastSkillId: skills.some((k) => k.id === s.lastSkillId) ? s.lastSkillId : (skills[0]?.id ?? null),
+            tombstones: {
+              skills: s.tombstones.skills.filter((t) => !sentSkills.has(t)),
+              sessions: s.tombstones.sessions.filter((t) => !sentSessions.has(t)),
+            },
+          };
+        }),
 
       applyImport: (skills, sessions, dailyGoalMin) =>
         set((s) => {
@@ -126,7 +162,7 @@ export const useStore = create<State>()(
           };
         }),
 
-      resetAll: () => set({ skills: [], sessions: [], active: null, lastSkillId: null, celebrated: {}, dailyGoalMin: 120 }),
+      resetAll: () => set({ skills: [], sessions: [], active: null, lastSkillId: null, celebrated: {}, dailyGoalMin: 120, tombstones: { skills: [], sessions: [] } }),
 
       setDailyGoal: (min) => set({ dailyGoalMin: min }),
 
@@ -162,15 +198,20 @@ export const useStore = create<State>()(
     {
       name: 'tenk-v1',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
-      // v0 → v1: skills gain an icon; pick one from the name so existing skills aren't blank.
+      version: 2,
       migrate: (persisted, version) => {
         const p = persisted as Partial<State>;
+        // v0 → v1: skills gain an icon; pick one from the name so existing skills aren't blank.
         if (version < 1 && Array.isArray(p.skills)) p.skills = p.skills.map((k) => ({ ...k, icon: k.icon ?? guessIcon(k.name) }));
+        // v1 → v2: skills gain updatedAt for sync; deletions are tracked.
+        if (version < 2) {
+          if (Array.isArray(p.skills)) p.skills = p.skills.map((k) => ({ ...k, updatedAt: k.updatedAt ?? k.createdAt }));
+          p.tombstones = p.tombstones ?? { skills: [], sessions: [] };
+        }
         return p as State;
       },
-      partialize: ({ skills, sessions, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks }) => ({
-        skills, sessions, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks,
+      partialize: ({ skills, sessions, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones }) => ({
+        skills, sessions, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones,
       }),
     },
   ),

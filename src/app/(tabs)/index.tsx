@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../components/Button';
-import { IconButton } from '../../components/IconButton';
+import { AvatarButton } from '../../components/AvatarButton';
 import { GoalRing } from '../../components/GoalRing';
 import { PlayIcon, PlusIcon } from '../../components/Icons';
 import { PressableScale } from '../../components/PressableScale';
@@ -93,7 +93,7 @@ export default function Today() {
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, letterSpacing: 0.6, color: colors.muted }}>
               {`${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`.toUpperCase()}
             </Text>
-            <IconButton kind="settings" onPress={() => router.push('/settings')} />
+            <AvatarButton />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             <View style={{ flex: 1, minWidth: 0, gap: 4 }}>

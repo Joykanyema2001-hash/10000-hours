@@ -2,9 +2,11 @@ import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion, ZoomIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppleSignInButton } from '../components/AppleSignInButton';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { Text } from '../components/Text';
+import { useStore } from '../store';
 import { colors, fonts } from '../theme';
 
 export default function Welcome() {
@@ -29,6 +31,11 @@ export default function Welcome() {
         <View style={{ flex: 1 }} />
         <Animated.View entering={rise(360)} style={{ alignSelf: 'stretch' }}>
           <Button label="Pick your first skill" onPress={() => router.push('/add-skill')} />
+          <View style={{ marginTop: 10 }}>
+            <AppleSignInButton
+              onDone={() => router.replace(useStore.getState().skills.length ? '/(tabs)' : '/add-skill')}
+            />
+          </View>
           <Pressable onPress={() => router.push('/import')} accessibilityRole="button" style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, textDecorationLine: 'underline' }}>I have a backup to restore</Text>
           </Pressable>

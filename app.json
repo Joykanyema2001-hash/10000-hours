@@ -19,7 +19,8 @@
           "group.com.joykanyema.tenthousandhours"
         ]
       },
-      "appleTeamId": "C6P5FN7KJ5"
+      "appleTeamId": "C6P5FN7KJ5",
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.joykanyema.tenthousandhours",
@@ -53,7 +54,8 @@
         }
       ],
       "expo-dev-client",
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": false

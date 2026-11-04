@@ -13,7 +13,9 @@ import { BannerHost } from '../components/BannerHost';
 import { CelebrationHost } from '../components/CelebrationHost';
 import { SessionWatcher } from '../components/SessionWatcher';
 import { SplashHandoff } from '../components/SplashHandoff';
+import { startAuth, useAuth } from '../lib/auth';
 import { startNativeSync, syncNative } from '../lib/nativeSync';
+import { startSync, syncNow } from '../lib/sync';
 import { notify } from '../lib/notify';
 import { scheduleNudge, setupNotificationChannel } from '../lib/notifications';
 import { todayMs, useStore } from '../store';
@@ -45,12 +47,23 @@ export default function RootLayout() {
       if (st !== 'active') return;
       replan();
       syncNative(); // refresh the hour window and today's widget after time away
+      if (useAuth.getState().session) syncNow().catch(() => {});
     });
     return () => sub.remove();
   }, []);
 
   // Lock screen / Dynamic Island Live Activity and home-screen widget (dev and store builds only).
   useEffect(() => startNativeSync(), []);
+
+  // Account: restore sign-in, then keep data synced with the cloud.
+  useEffect(() => {
+    const stopAuth = startAuth();
+    const stopSync = startSync();
+    return () => {
+      stopAuth();
+      stopSync();
+    };
+  }, []);
 
   // A notification that arrives while the app is open becomes a branded banner, not an iOS one.
   // Session alerts are skipped here because SessionWatcher raises those itself.
@@ -89,6 +102,7 @@ export default function RootLayout() {
         <Stack.Screen name="skill/edit/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="log/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="profile" />
         <Stack.Screen name="import" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         {/* A sheet: swipe down to tuck the running session away (native, velocity-aware, interruptible). */}
         <Stack.Screen name="timer" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.lime } }} />
