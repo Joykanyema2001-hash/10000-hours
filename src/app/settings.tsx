@@ -1,5 +1,7 @@
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, ScrollView, Share, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -61,6 +63,23 @@ export default function Settings() {
   const minuteTicks = useStore((s) => s.minuteTicks);
   const setSetting = useStore((s) => s.setSetting);
   const counts = useStore(useShallow((s) => ({ skills: s.skills.length, sessions: s.sessions.length })));
+
+  // Read back what's actually saved on the phone, so a saving problem is visible.
+  const [saved, setSaved] = useState('Checking what is saved on this phone…');
+  useEffect(() => {
+    AsyncStorage.getItem('tenk-v1')
+      .then((raw) => {
+        const st = raw ? JSON.parse(raw)?.state : null;
+        const n = st?.skills?.length ?? 0;
+        const m = st?.sessions?.length ?? 0;
+        setSaved(
+          n === counts.skills && m === counts.sessions
+            ? `Saved on this phone: ${n} skill${n === 1 ? '' : 's'}, ${m} session${m === 1 ? '' : 's'}. Only on this phone, so export a backup now and then.`
+            : `Saving problem: the phone has ${n} skills and ${m} sessions saved, but the app shows ${counts.skills} and ${counts.sessions}. Export a backup and tell us.`,
+        );
+      })
+      .catch((e) => setSaved(`Saving isn't working on this phone (${String(e?.message ?? e)}). Export a backup before closing the app.`));
+  }, [counts.skills, counts.sessions]);
 
   const exportData = async () => {
     const s = useStore.getState();
@@ -142,9 +161,12 @@ export default function Settings() {
           </Row>
         </Section>
 
-        <Section title="Your data" footer="Everything is stored on this phone only.">
+        <Section title="Your data" footer={saved}>
           <PressableScale onPress={exportData} accessibilityRole="button" accessibilityLabel="Export a backup">
             <Row label="Export a backup" detail={`${counts.skills} skills, ${counts.sessions} sessions as text you can save`} />
+          </PressableScale>
+          <PressableScale onPress={() => router.push('/import')} accessibilityRole="button" accessibilityLabel="Import a backup">
+            <Row label="Import a backup" detail="Bring in skills and sessions from another copy of the app" />
           </PressableScale>
           <PressableScale onPress={erase} accessibilityRole="button" accessibilityLabel="Erase everything">
             <Row label="Erase everything" detail="Start again from the welcome screen" last />

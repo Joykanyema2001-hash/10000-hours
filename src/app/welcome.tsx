@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion, ZoomIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
@@ -29,6 +29,9 @@ export default function Welcome() {
         <View style={{ flex: 1 }} />
         <Animated.View entering={rise(360)} style={{ alignSelf: 'stretch' }}>
           <Button label="Pick your first skill" onPress={() => router.push('/add-skill')} />
+          <Pressable onPress={() => router.push('/import')} accessibilityRole="button" style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, textDecorationLine: 'underline' }}>I have a backup to restore</Text>
+          </Pressable>
         </Animated.View>
       </View>
     </SafeAreaView>

@@ -89,6 +89,7 @@ export default function RootLayout() {
         <Stack.Screen name="skill/edit/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="log/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="import" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         {/* A sheet: swipe down to tuck the running session away (native, velocity-aware, interruptible). */}
         <Stack.Screen name="timer" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.lime } }} />
       </Stack>

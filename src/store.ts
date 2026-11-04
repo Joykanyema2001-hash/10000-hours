@@ -43,6 +43,8 @@ type State = {
   logSession: (skillId: string, ms: number, end: number) => Session;
   deleteSession: (id: string) => void;
   resetAll: () => void;
+  /** Replace skills and sessions with a merged import; levels already reached don't pop up again. */
+  applyImport: (skills: Skill[], sessions: Session[], dailyGoalMin?: number) => void;
   setDailyGoal: (min: number) => void;
   startSession: (skillId: string) => void;
   pause: () => void;
@@ -107,6 +109,22 @@ export const useStore = create<State>()(
       },
 
       deleteSession: (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
+
+      applyImport: (skills, sessions, dailyGoalMin) =>
+        set((s) => {
+          const celebrated = { ...s.celebrated };
+          for (const k of skills) {
+            const hours = Math.floor(skillTotalMs({ skills, sessions, active: s.active }, k.id) / HOUR);
+            celebrated[k.id] = Math.max(celebrated[k.id] ?? 0, latestLevel(hours)?.hours ?? 0);
+          }
+          return {
+            skills,
+            sessions,
+            celebrated,
+            lastSkillId: s.lastSkillId ?? skills[0]?.id ?? null,
+            dailyGoalMin: s.skills.length === 0 && dailyGoalMin ? dailyGoalMin : s.dailyGoalMin,
+          };
+        }),
 
       resetAll: () => set({ skills: [], sessions: [], active: null, lastSkillId: null, celebrated: {}, dailyGoalMin: 120 }),
 
