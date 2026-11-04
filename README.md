@@ -65,3 +65,24 @@ npx eas-cli@latest build --platform ios --profile development
 ```
 
 Then run `npx expo start` and open the 10,000 Hours app (not Expo Go) on the phone.
+
+## Accounts and sync
+
+Sign in with Apple + Supabase. Data is saved on the phone first and synced in the background.
+
+| Path | What it is |
+| --- | --- |
+| `supabase/schema.sql` | Tables, row-level security (each person sees only their rows) and `delete_my_account()`. Run once in the Supabase SQL editor |
+| `src/lib/syncMerge.ts` | Pure two-way merge: newest skill edit wins, sessions are a union, deletions stick, same-name skills merge |
+| `src/lib/sync.ts` | Runs the sync (on sign-in, after changes, on app open) |
+| `src/lib/auth.ts` | Sign in with Apple, profile, sign out, delete account |
+
+## TestFlight
+
+From the Mac, once:
+
+```bash
+npx eas-cli@latest build --platform ios --profile production --auto-submit
+```
+
+This creates the App Store signing (app + widget, with Sign in with Apple), builds in the cloud and uploads to TestFlight. After that, later builds can also be started from expo.dev.

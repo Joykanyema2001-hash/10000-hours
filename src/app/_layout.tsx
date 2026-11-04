@@ -13,6 +13,7 @@ import { BannerHost } from '../components/BannerHost';
 import { CelebrationHost } from '../components/CelebrationHost';
 import { SessionWatcher } from '../components/SessionWatcher';
 import { SplashHandoff } from '../components/SplashHandoff';
+import { StillGoingCheck } from '../components/StillGoingCheck';
 import { startAuth, useAuth } from '../lib/auth';
 import { startNativeSync, syncNative } from '../lib/nativeSync';
 import { startSync, syncNow } from '../lib/sync';
@@ -110,6 +111,7 @@ export default function RootLayout() {
       <SessionWatcher />
       <Overlay>
         <CelebrationHost />
+        <StillGoingCheck />
         <BannerHost />
       </Overlay>
       <SplashHandoff ready />

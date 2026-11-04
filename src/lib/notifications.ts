@@ -21,7 +21,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const SESSION_IDS = ['session-hour-1', 'session-hour-2', 'session-hour-3', 'session-goal'];
+const SESSION_IDS = ['session-hour-1', 'session-hour-2', 'session-hour-3', 'session-goal', 'session-check'];
 const NUDGE_ID = 'daily-nudge';
 
 export async function setupNotificationChannel() {
@@ -59,8 +59,10 @@ async function scheduleIn(id: string, ms: number, title: string, body: string) {
   });
 }
 
-export async function scheduleSessionAlerts(opts: { skillName: string; skillTotalMs: number; todayMs: number; goalMs: number }) {
+export async function scheduleSessionAlerts(opts: { skillName: string; skillTotalMs: number; todayMs: number; goalMs: number; checkInMs: number }) {
   await cancel(SESSION_IDS);
+  // Forgotten-timer check: lands after a long stretch with no confirmation.
+  await scheduleIn('session-check', opts.checkInMs, `Still practising ${opts.skillName}?`, 'Your timer is still running. Tap to keep going or save the time you actually did.');
   const { skillName, skillTotalMs, todayMs, goalMs } = opts;
   const firstHour = Math.floor(skillTotalMs / HOUR) + 1;
   for (let k = 0; k < 3; k++) {

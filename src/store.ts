@@ -19,6 +19,8 @@ export type ActiveSession = {
   bankedMs: number;
   /** When the current run started; null while paused. */
   runningSince: number | null;
+  /** Elapsed time when the person last confirmed they're still practising (forgotten-timer check). */
+  checkedMs?: number;
 };
 
 type State = {
@@ -53,7 +55,9 @@ type State = {
   startSession: (skillId: string) => void;
   pause: () => void;
   resume: () => void;
-  finish: () => Session | null;
+  /** Save the running session; `ms` overrides the length (e.g. trimmed after a forgotten timer). */
+  finish: (ms?: number) => Session | null;
+  confirmStillGoing: () => void;
   discard: () => void;
 };
 
@@ -184,16 +188,24 @@ export const useStore = create<State>()(
         set({ active: { ...a, runningSince: Date.now() } });
       },
 
-      finish: () => {
+      finish: (override) => {
         const a = get().active;
         if (!a) return null;
-        const ms = elapsedOf(a);
-        const session: Session = { id: uid(), skillId: a.skillId, start: a.startedAt, end: Date.now(), ms };
+        const elapsed = elapsedOf(a);
+        const ms = override != null ? Math.max(0, Math.min(override, elapsed)) : elapsed;
+        // A trimmed session ends when the practice did, not when the timer was noticed.
+        const end = override != null ? Math.min(Date.now(), a.startedAt + ms) : Date.now();
+        const session: Session = { id: uid(), skillId: a.skillId, start: a.startedAt, end, ms };
         set((s) => ({ active: null, sessions: [...s.sessions, session] }));
         return session;
       },
 
       discard: () => set({ active: null }),
+
+      confirmStillGoing: () => {
+        const a = get().active;
+        if (a) set({ active: { ...a, checkedMs: elapsedOf(a) } });
+      },
     }),
     {
       name: 'tenk-v1',

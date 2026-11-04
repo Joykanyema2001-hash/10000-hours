@@ -19,6 +19,7 @@ async function planAlerts() {
     skillTotalMs: skillTotalMs(s, skill.id),
     todayMs: todayMs(s),
     goalMs: s.dailyGoalMin * MINUTE,
+    checkInMs: Math.max(MINUTE, CHECK_AFTER - (elapsedOf(a) - (a.checkedMs ?? 0))),
   });
 }
 
@@ -81,9 +82,22 @@ export function togglePause() {
   planAlerts().catch(() => {});
 }
 
-export function finishSession(): Session | null {
+/** Ask "still practising?" after this long without confirmation. */
+export const CHECK_AFTER = 3 * HOUR;
+
+export function needsCheck(a: ReturnType<typeof useStore.getState>['active'], now = Date.now()) {
+  return !!a && a.runningSince != null && elapsedOf(a, now) - (a.checkedMs ?? 0) >= CHECK_AFTER;
+}
+
+export function confirmStillGoing() {
+  useStore.getState().confirmStillGoing();
+  haptics.soft();
+  planAlerts().catch(() => {});
+}
+
+export function finishSession(ms?: number): Session | null {
   const s = useStore.getState();
-  const done = s.finish();
+  const done = s.finish(ms);
   cancelSessionAlerts().catch(() => {});
   if (done) {
     const after = useStore.getState();
