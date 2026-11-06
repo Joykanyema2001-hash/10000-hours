@@ -14,7 +14,7 @@ export function Suggestions({ selected, taken, onPick }: { selected: string; tak
     <View style={{ gap: 14 }}>
       {SUGGESTIONS.map((g, gi) => (
         <Animated.View key={g.group} entering={reduce ? undefined : FadeInDown.delay(60 + gi * 50).springify().dampingRatio(1).duration(360)} style={{ gap: 8 }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, letterSpacing: 0.6, color: colors.muted }}>{g.group.toUpperCase()}</Text>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.muted }}>{g.group}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 24 }} style={{ marginHorizontal: -24 }}>
             {g.items.map((it) => {
               const on = selected.trim().toLowerCase() === it.name.toLowerCase();

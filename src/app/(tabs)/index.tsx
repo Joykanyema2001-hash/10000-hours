@@ -42,7 +42,7 @@ function when(t: number, now: number) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, lineHeight: 16, letterSpacing: 0.6, color: colors.muted }} numberOfLines={1}>{label.toUpperCase()}</Text>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 16, color: colors.muted }} numberOfLines={1}>{label}</Text>
       <Text style={{ fontFamily: fonts.display, fontSize: 24, lineHeight: 28 }} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
     </View>
   );
@@ -90,8 +90,8 @@ export default function Today() {
         {/* Header: date + greeting, today's total and the goal ring */}
         <Animated.View entering={rise(0)} style={{ gap: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: -10 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, letterSpacing: 0.6, color: colors.muted }}>
-              {`${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`.toUpperCase()}
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.muted }}>
+              {`${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`}
             </Text>
             <AvatarButton />
           </View>

@@ -28,7 +28,7 @@ export function GoalRing({ fraction, size = 104 }: { fraction: number; size?: nu
         <AnimatedCircle cx={size / 2} cy={size / 2} r={r} stroke={colors.lime} strokeWidth={stroke - 6} fill="none" strokeLinecap="round" strokeDasharray={`${c} ${c}`} animatedProps={extra} />
       </Svg>
       <Text style={{ fontFamily: fonts.display, fontSize: 24, lineHeight: 26 }} maxFontSizeMultiplier={1}>{Math.min(pct, 999)}%</Text>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11, lineHeight: 14, color: colors.muted }} maxFontSizeMultiplier={1}>OF GOAL</Text>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, lineHeight: 14, color: colors.muted }} maxFontSizeMultiplier={1}>of goal</Text>
     </View>
   );
 }

@@ -32,7 +32,7 @@ function ago(t: number, now: number) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ width: '47%', flexGrow: 1, padding: 14, backgroundColor: colors.white, borderWidth: 3, borderColor: colors.ink, borderRadius: 18, gap: 2 }}>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, letterSpacing: 0.6, color: colors.muted }}>{label.toUpperCase()}</Text>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.muted }}>{label}</Text>
       <Text style={{ fontFamily: fonts.display, fontSize: 26, lineHeight: 30 }} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
     </View>
   );
