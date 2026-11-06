@@ -87,16 +87,14 @@ type Props = {
   onAddNode: (parentId: string | null) => void;
   /** Bump to re-fit the view (e.g. after adding the first step). */
   fitKey?: number;
-  /** Open at the left edge instead of centred on the skill: plans read left to right from stage 1. */
-  startLeft?: boolean;
 };
 
 /**
  * Pan / pinch / double-tap canvas for a skill tree. Pan tracks the finger 1:1 and
  * keeps gliding with the flick's velocity; pinch zooms around the fingers; a
- * double-tap springs back to fit the whole tree.
+ * double-tap toggles between a whole-tree overview and the readable view.
  */
-export function TreeCanvas({ skill, nodes, sessions, onOpenNode, onAddNode, fitKey = 0, startLeft = false }: Props) {
+export function TreeCanvas({ skill, nodes, sessions, onOpenNode, onAddNode, fitKey = 0 }: Props) {
   const reduce = useReducedMotion();
   const layout = useMemo(() => layoutTree(nodes), [nodes]);
   const view = useSharedValue({ w: 0, h: 0 });
@@ -105,17 +103,16 @@ export function TreeCanvas({ skill, nodes, sessions, onOpenNode, onAddNode, fitK
   const scale = useSharedValue(1);
   const start = useSharedValue({ x: 0, y: 0, s: 1 });
 
-  const rootX = layout.byId.get(ROOT_ID)!.x + layout.byId.get(ROOT_ID)!.w / 2;
   const LW = layout.width;
   const LH = layout.height;
 
-  /** Opening view: readable size (never tiny), centred on the skill at the top. */
+  /** Opening view: full size when it fits, never tiny, centred across, starting at the top. */
   const openAt = (w: number, animate: boolean) => {
     'worklet';
     if (!w) return;
-    const s = Math.min(1, Math.max(0.78, (w - 32) / LW));
-    const x = startLeft ? 16 - 24 * s : Math.min(16, Math.max(w - LW * s - 16, w / 2 - rootX * s));
-    const y = 12;
+    const s = Math.min(1, Math.max(0.78, (w - 16) / LW));
+    const x = Math.max((w - LW * s) / 2, 8 - 16 * s);
+    const y = 4;
     if (animate) {
       tx.value = withSpring(x, springs.ui);
       ty.value = withSpring(y, springs.ui);
@@ -198,7 +195,11 @@ export function TreeCanvas({ skill, nodes, sessions, onOpenNode, onAddNode, fitK
     onDeactivate: (e) => {
       'worklet';
       if (e.canceled) return;
-      fitTo(view.value.w, view.value.h, true);
+      // Toggle: zoomed out → back to the readable view at the top; otherwise → whole-tree overview.
+      const { w, h } = view.value;
+      const readable = Math.min(1, Math.max(0.78, (w - 16) / LW));
+      if (scale.value < readable - 0.05) openAt(w, true);
+      else fitTo(w, h, true);
     },
   });
 
@@ -213,20 +214,21 @@ export function TreeCanvas({ skill, nodes, sessions, onOpenNode, onAddNode, fitK
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={styles.viewport} onLayout={onLayout} accessibilityLabel="Skill tree. Drag to move, pinch to zoom, double-tap to fit.">
+      <View style={styles.viewport} onLayout={onLayout} accessibilityLabel="Skill tree. Drag to move, pinch to zoom, double-tap for an overview.">
         <Animated.View style={[{ width: layout.width, height: layout.height, transformOrigin: 'left top' }, style]}>
           <Svg width={layout.width} height={layout.height} style={StyleSheet.absoluteFill}>
             {layout.edges.map(({ from, to }) => {
-              const x1 = from.x + from.w / 2;
-              const y1 = from.y + from.h + 14; // below the parent's + button
-              const x2 = to.x + to.w / 2;
-              const y2 = to.y;
+              // An elbow from the parent's left side down to the middle of the child's left edge.
+              const x1 = from.x + 20;
+              const y1 = from.y + from.h;
+              const x2 = to.x;
+              const y2 = to.y + to.h / 2;
+              const r = 12;
               const solid = to.node?.status === 'mastered';
-              const midY = (y1 + y2) / 2;
               return (
                 <Path
                   key={to.id}
-                  d={`M${x1} ${y1} C${x1} ${midY} ${x2} ${midY} ${x2} ${y2}`}
+                  d={`M${x1} ${y1} L${x1} ${y2 - r} Q${x1} ${y2} ${x1 + r} ${y2} L${x2} ${y2}`}
                   stroke={solid ? colors.ink : colors.muted}
                   strokeWidth={solid ? 4 : 2.5}
                   strokeDasharray={solid ? undefined : '6 6'}

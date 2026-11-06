@@ -10,6 +10,7 @@ import { Button } from '../../components/Button';
 import { Chip } from '../../components/Chip';
 import { Field } from '../../components/Field';
 import { IconButton } from '../../components/IconButton';
+import { OptionRow, PlanJourney, PlanStats } from '../../components/PlanJourney';
 import { SkillIcon } from '../../components/SkillIcon';
 import { Text } from '../../components/Text';
 import { useAuth } from '../../lib/auth';
@@ -98,7 +99,7 @@ export default function NewPlan() {
     haptics.success();
     const steps = p.stages.reduce((n, s) => n + s.steps.length, 0);
     notify({ kind: 'info', title: `${p.skillName} is mapped`, body: `${p.stages.length} stages, ${steps} steps. Tap any step for its lesson.` });
-    router.replace({ pathname: '/tree/[id]', params: { id, start: 'left' } });
+    router.replace({ pathname: '/tree/[id]', params: { id } });
   };
 
   const header = (
@@ -168,9 +169,9 @@ export default function NewPlan() {
                 {phase.q.questions.map((q, i) => (
                   <Animated.View key={q.question} entering={rise(i + 1)} style={{ gap: 10 }}>
                     <Text variant="heading">{q.question}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    <View style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel={q.question}>
                       {q.options.map((o) => (
-                        <Chip fit key={o} label={o} selected={answers[i] === o} onPress={() => setAnswers((a) => ({ ...a, [i]: o }))} />
+                        <OptionRow key={o} label={o} selected={answers[i] === o} onPress={() => setAnswers((a) => ({ ...a, [i]: o }))} />
                       ))}
                     </View>
                   </Animated.View>
@@ -190,31 +191,18 @@ export default function NewPlan() {
                     <Text variant="title" style={{ flex: 1 }} accessibilityRole="header">{phase.plan.skillName}</Text>
                   </View>
                   <Text variant="bodyMedium">{phase.plan.summary}</Text>
-                  <Text variant="caption">About {Math.round(phase.plan.minutesPerWeek / 60 * 10) / 10} hours a week · {phase.plan.stages.length} stages</Text>
                 </Animated.View>
 
+                <PlanStats plan={phase.plan} />
+
                 {phase.plan.safety ? (
-                  <Animated.View entering={rise(1)} style={{ flexDirection: 'row', gap: 12, padding: 14, borderRadius: 18, backgroundColor: colors.ink }}>
+                  <Animated.View entering={rise(2)} style={{ flexDirection: 'row', gap: 12, padding: 14, borderRadius: 18, backgroundColor: colors.ink }}>
                     <ShieldAlert size={22} color={colors.lime} strokeWidth={2.25} />
                     <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 21, color: colors.paper }}>{phase.plan.safety}</Text>
                   </Animated.View>
                 ) : null}
 
-                {phase.plan.stages.map((s, i) => (
-                  <Animated.View key={s.title + i} entering={rise(i + 2)} style={{ padding: 16, borderRadius: 20, borderWidth: 3, borderColor: colors.ink, backgroundColor: i === 0 ? colors.lime : colors.white, gap: 10 }}>
-                    <View style={{ gap: 2 }}>
-                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.muted }}>Stage {i + 1}</Text>
-                      <Text style={{ fontFamily: fonts.displaySemi, fontSize: 20, lineHeight: 24 }}>{s.title}</Text>
-                      <Text variant="body">{s.why}</Text>
-                    </View>
-                    {s.steps.map((st) => (
-                      <View key={st.title} style={{ flexDirection: 'row', gap: 10 }}>
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.ink, marginTop: 7 }} />
-                        <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 15, lineHeight: 21 }}>{st.title}</Text>
-                      </View>
-                    ))}
-                  </Animated.View>
-                ))}
+                <PlanJourney plan={phase.plan} />
 
                 <View style={{ gap: 8 }}>
                   <Button label="Add to my skills" onPress={() => accept(phase.plan)} />

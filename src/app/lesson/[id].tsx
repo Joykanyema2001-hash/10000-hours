@@ -21,13 +21,16 @@ import X from 'lucide-react-native/icons/x';
 import Zap from 'lucide-react-native/icons/zap';
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
+  useAnimatedProps,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withSpring,
@@ -80,6 +83,98 @@ function Visual({ visual, active }: { visual: Visual; active: boolean }) {
   );
 }
 
+/** "How to do it" as a flow: numbered stops joined by a line that draws downward. */
+function StepFlow({ items, delay }: { items: string[]; delay: number }) {
+  const reduce = useReducedMotion();
+  const grow = useSharedValue(reduce ? 1 : 0);
+  useEffect(() => {
+    if (!reduce) grow.value = withDelay(delay, withTiming(1, { duration: 260 * items.length, easing: Easing.out(Easing.cubic) }));
+  }, [reduce, grow, delay, items.length]);
+  const line = useAnimatedStyle(() => ({ transform: [{ scaleY: grow.value }] }));
+  return (
+    <View>
+      <Animated.View style={[{ position: 'absolute', left: 15, top: 16, bottom: 16, width: 3, borderRadius: 2, backgroundColor: colors.lime, transformOrigin: 'top' }, line]} />
+      <View style={{ gap: 14 }}>
+        {items.map((b, i) => (
+          <Animated.View
+            key={b + i}
+            entering={reduce ? FadeIn.duration(200) : FadeInDown.delay(delay + i * 260).springify().dampingRatio(0.8).duration(380)}
+            style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}
+          >
+            <View style={{ width: 33, height: 33, borderRadius: 17, backgroundColor: colors.lime, borderWidth: 3, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: colors.ink }}>{i + 1}</Text>
+            </View>
+            <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 17, lineHeight: 23, color: colors.paper }}>{b}</Text>
+          </Animated.View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** A mistake and its fix, split at "Mistake: fix" (or a dash) when the coach wrote it that way. */
+function DontDo({ text }: { text: string }) {
+  const m = text.match(/^(.+?)(?::\s+|\s+[—–-]\s+)(.+)$/);
+  const dont = m ? m[1] : text;
+  const fix = m ? m[2].charAt(0).toUpperCase() + m[2].slice(1) : null;
+  return (
+    <View style={{ borderRadius: 16, borderWidth: 2, borderColor: 'rgba(248,250,238,0.35)', overflow: 'hidden' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' }}>
+          <X size={15} color={colors.ink} strokeWidth={3} />
+        </View>
+        <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22, color: colors.paper }}>{dont}</Text>
+      </View>
+      {fix ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.lime }}>
+          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+            <Check size={15} color={colors.lime} strokeWidth={3} />
+          </View>
+          <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22, color: colors.ink }}>{fix}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const RING = 120;
+const RING_STROKE = 12;
+const RING_R = (RING - RING_STROKE) / 2;
+const RING_C = 2 * Math.PI * RING_R;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+/** The drill's length as a timer ring that sweeps round once. */
+function DrillRing({ minutes }: { minutes: number }) {
+  const reduce = useReducedMotion();
+  const sweep = useSharedValue(reduce ? 1 : 0);
+  useEffect(() => {
+    if (!reduce) sweep.value = withDelay(200, withTiming(1, { duration: 1100, easing: Easing.out(Easing.cubic) }));
+  }, [reduce, sweep]);
+  const props = useAnimatedProps(() => ({ strokeDashoffset: RING_C * (1 - sweep.value) }));
+  return (
+    <Animated.View entering={reduce ? undefined : ZoomIn.springify().dampingRatio(0.7).duration(500)} style={{ width: RING, height: RING }}>
+      <Svg width={RING} height={RING} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle cx={RING / 2} cy={RING / 2} r={RING_R} stroke="rgba(248,250,238,0.2)" strokeWidth={RING_STROKE} fill="none" />
+        <AnimatedCircle
+          cx={RING / 2}
+          cy={RING / 2}
+          r={RING_R}
+          stroke={colors.lime}
+          strokeWidth={RING_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={`${RING_C} ${RING_C}`}
+          animatedProps={props}
+          fill="none"
+        />
+      </Svg>
+      <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontFamily: fonts.display, fontSize: 34, lineHeight: 38, color: colors.lime }}>{minutes}</Text>
+        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.paper }}>min</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
 function SceneView({ scene, active, height, isFirst, onDrill }: { scene: Scene; active: boolean; height: number; isFirst: boolean; onDrill: (minutes: number) => void }) {
   const reduce = useReducedMotion();
   const enter = (n: number) => (reduce ? FadeIn.duration(200) : FadeInDown.delay(120 + n * 90).springify().dampingRatio(1).duration(420));
@@ -95,7 +190,7 @@ function SceneView({ scene, active, height, isFirst, onDrill }: { scene: Scene; 
       {/* Remount on activation so each scene animates in when you reach it. */}
       {active ? (
         <View style={{ gap: 18 }}>
-          <Visual visual={scene.visual} active={active} />
+          {scene.kind === 'drill' ? <DrillRing minutes={scene.minutes ?? 10} /> : <Visual visual={scene.visual} active={active} />}
           <Animated.View entering={enter(0)} style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 2, borderColor: colors.lime }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.lime }}>{KIND_LABEL[scene.kind]}</Text>
           </Animated.View>
@@ -105,18 +200,22 @@ function SceneView({ scene, active, height, isFirst, onDrill }: { scene: Scene; 
           <Animated.View entering={enter(2)}>
             <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 18, lineHeight: 26, color: colors.paper, opacity: 0.9 }}>{scene.body}</Text>
           </Animated.View>
-          {scene.bullets.length ? (
+          {scene.kind === 'steps' && scene.bullets.length ? (
+            <StepFlow items={scene.bullets} delay={120 + 3 * 90} />
+          ) : scene.kind === 'mistakes' && scene.bullets.length ? (
+            <View style={{ gap: 10 }}>
+              {scene.bullets.map((b, i) => (
+                <Animated.View key={b + i} entering={enter(3 + i)}>
+                  <DontDo text={b} />
+                </Animated.View>
+              ))}
+            </View>
+          ) : scene.bullets.length ? (
             <View style={{ gap: 10 }}>
               {scene.bullets.map((b, i) => (
                 <Animated.View key={b + i} entering={enter(3 + i)} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-                  <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: scene.kind === 'mistakes' ? colors.paper : colors.lime, alignItems: 'center', justifyContent: 'center' }}>
-                    {scene.kind === 'steps' ? (
-                      <Text style={{ fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: colors.ink }}>{i + 1}</Text>
-                    ) : scene.kind === 'mistakes' ? (
-                      <X size={18} color={colors.ink} strokeWidth={3} />
-                    ) : (
-                      <Check size={18} color={colors.ink} strokeWidth={3} />
-                    )}
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
+                    <Check size={18} color={colors.ink} strokeWidth={3} />
                   </View>
                   <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 17, lineHeight: 24, color: colors.paper }}>{b}</Text>
                 </Animated.View>
