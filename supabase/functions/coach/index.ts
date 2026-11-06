@@ -13,7 +13,9 @@ import { betaZodOutputFormat } from 'npm:@anthropic-ai/sdk@1.6.0/helpers/beta/zo
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
 import { z } from 'npm:zod@4.6.7';
 
-const MODEL = Deno.env.get('COACH_MODEL') ?? 'claude-opus-5-5';
+// Plans need the most judgement; questions and lessons are short and frequent.
+const PLAN_MODEL = Deno.env.get('COACH_PLAN_MODEL') ?? 'claude-sonnet-5-5';
+const FAST_MODEL = Deno.env.get('COACH_FAST_MODEL') ?? 'claude-haiku-5-5';
 const LIMITS = { ask: 20, plan: 3, lesson: 40 } as const;
 const LESSON_HIDE_AFTER = 3;
 
@@ -97,13 +99,16 @@ const fail = (status: number, code: string, message: string) => reply(status, { 
 
 class Refused extends Error {}
 
-/** One structured call. Refusals fall back server-side; a final refusal throws. */
-async function generate<T extends z.ZodType>(schema: T, prompt: string, effort: 'low' | 'medium', maxTokens = 16000): Promise<z.infer<T>> {
+/**
+ * One structured call. Where the model supports it, a refusal is retried server-side on
+ * another model (Haiku has no server-side fallback); a final refusal throws.
+ */
+async function generate<T extends z.ZodType>(model: string, schema: T, prompt: string, effort: 'low' | 'medium', maxTokens = 16000): Promise<z.infer<T>> {
+  const fallback = model.startsWith('claude-haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const };
   const response = await client.beta.messages.parse({
-    model: MODEL,
+    model,
     max_tokens: maxTokens,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
+    ...fallback,
     output_config: { effort, format: betaZodOutputFormat(schema) },
     system: STYLE,
     messages: [{ role: 'user', content: prompt }],
@@ -155,6 +160,7 @@ Deno.serve(async (req) => {
       kind = 'ask';
       if (!(await take(user.id, kind))) return fail(429, 'limit', 'You have used this month’s coach questions. They reset on the 1st.');
       const out = await generate(
+        FAST_MODEL,
         Questions,
         `Someone wants to learn: "${goal}".\nAsk 2 or 3 multiple-choice questions whose answers would most change their plan, such as current level, what they have access to, how much time they have, or what they want it for. Give each 2 to 4 short options.`,
         'low',
@@ -173,6 +179,7 @@ Deno.serve(async (req) => {
       if (!(await take(user.id, kind))) return fail(429, 'limit', `You can make ${LIMITS.plan} new plans a month. More on the 1st.`);
       const context = answers.map((a: { question?: unknown; answer?: unknown }) => `- ${clean(a?.question, 140)}: ${clean(a?.answer, 140)}`).join('\n');
       const out = await generate(
+        PLAN_MODEL,
         Plan,
         `Build a learning plan for: "${goal}".\nWhat they told us:\n${context || '- nothing yet'}\n\nGo from where they are now to genuine mastery, in 3 to 6 stages with 2 to 4 concrete, practisable steps each. Each step should be something they can work on in a session and clearly tell when they have it. Order matters: each stage builds on the last.`,
         'medium',
@@ -199,6 +206,7 @@ Deno.serve(async (req) => {
       kind = 'lesson';
       if (!(await take(user.id, kind))) return fail(429, 'limit', 'You have reached this month’s new-lesson limit. Saved lessons still work.');
       const lesson = await generate(
+        FAST_MODEL,
         Lesson,
         `Make a short swipeable lesson for one step of learning ${skill}.\nStep: "${step}"${notes ? `\nAbout this step: ${notes}` : ''}\n\nFive scenes, like a great short teaching video broken into cards:\n1. hook: why this step matters, in a way that makes them want to try it\n2. idea: the one key idea or feel to aim for\n3. steps: how to do it, as up to 4 short ordered bullets\n4. mistakes: the most common mistakes, as up to 4 short bullets saying what to do instead\n5. drill: one specific practice drill with a length in minutes\nGive every scene a specific title about this step, never a generic one like "How to do it" or "Common mistakes" (the app already labels each scene). Pick the visual that best fits each scene.`,
         'low',
