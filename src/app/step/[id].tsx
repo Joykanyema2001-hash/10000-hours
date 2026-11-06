@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import Play from 'lucide-react-native/icons/play';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -89,6 +90,17 @@ export default function StepScreen() {
             {skill.name}
             {parent ? ` › ${parent.title}` : ''}
           </Text>
+
+          {!isNew ? (
+            <Button
+              variant="lime"
+              size="md"
+              label="Watch the lesson"
+              icon={<Play size={18} color={colors.ink} fill={colors.ink} />}
+              accessibilityHint="Opens a short swipeable lesson for this step"
+              onPress={() => router.push({ pathname: '/lesson/[id]', params: { id: node!.id } })}
+            />
+          ) : null}
 
           <Field label="What are you learning?" value={title} onChangeText={setTitle} placeholder="e.g. G major chord" autoFocus={isNew} returnKeyType="done" />
 

@@ -11,7 +11,7 @@ import { colors, fonts } from '../../theme';
 
 /** Full-screen, zoomable skill tree. */
 export default function TreeScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, start } = useLocalSearchParams<{ id: string; start?: string }>();
   const skill = useStore((s) => s.skills.find((k) => k.id === id));
   const nodes = useStore(useShallow((s) => s.nodes.filter((n) => n.skillId === id)));
   const sessions = useStore(useShallow((s) => s.sessions.filter((x) => x.skillId === id)));
@@ -38,6 +38,7 @@ export default function TreeScreen() {
 
       <View style={{ flex: 1, borderTopWidth: 2, borderBottomWidth: 2, borderColor: colors.divider }}>
         <TreeCanvas
+          startLeft={start === 'left'}
           skill={skill}
           nodes={nodes}
           sessions={sessions}

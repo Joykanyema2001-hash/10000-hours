@@ -112,3 +112,14 @@ Installed apps download it in the background and use it the next time they're op
 `runtimeVersion` uses the **fingerprint** policy: any native change (Swift in `targets/` or `modules/`,
 a new native library, native config) changes the fingerprint, so older builds stop receiving updates
 until a new build is installed. Native changes always need `eas build`.
+
+## AI coach
+
+Coach tab → **Learn something new**: the coach asks a couple of questions, builds a staged plan, and turns it into a skill tree. Every step has a short swipeable lesson (Watch the lesson on the step screen).
+
+- Server: `supabase/functions/coach` (Supabase Edge Function, Claude API). The API key lives only in Supabase secrets (`ANTHROPIC_API_KEY`); the app never sees it.
+- Database: run `supabase/003_coach.sql` once. Lessons are stored by topic and shared, so each one is generated once.
+- Limits per person per month: 20 question rounds, 3 new plans, 40 new lessons (saved lessons are free). Change `LIMITS` in the function.
+- Model: `claude-opus-5-5` by default; set a `COACH_MODEL` secret to change it.
+- Deploy: `npx supabase functions deploy coach --project-ref jweprragcqwzyvqxyosm --no-verify-jwt` (the function checks sign-in itself).
+- Lessons with 3 reports are hidden and regenerated on next view.

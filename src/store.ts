@@ -59,7 +59,7 @@ type State = {
   tombstones: Tombstones;
   /** Replace local data with a sync result and forget tombstones the cloud now has. */
   applySync: (skills: Skill[], sessions: Session[], nodes: SkillNode[], sentTombstones: Tombstones) => void;
-  addNode: (skillId: string, parentId: string | null, title: string) => string;
+  addNode: (skillId: string, parentId: string | null, title: string, extra?: { notes?: string; createdAt?: number }) => string;
   updateNode: (id: string, patch: Partial<Pick<SkillNode, 'title' | 'notes' | 'status' | 'parentId'>>) => void;
   /** Deletes a step and everything below it. */
   deleteNode: (id: string) => void;
@@ -169,10 +169,11 @@ export const useStore = create<State>()(
       deleteSession: (id) =>
         set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id), tombstones: { ...s.tombstones, sessions: [...s.tombstones.sessions, id] } })),
 
-      addNode: (skillId, parentId, title) => {
+      addNode: (skillId, parentId, title, extra) => {
         const id = uid();
         const now = Date.now();
-        const node: SkillNode = { id, skillId, parentId, title: title.trim(), status: 'todo', createdAt: now, updatedAt: now };
+        const notes = extra?.notes?.trim() || undefined;
+        const node: SkillNode = { id, skillId, parentId, title: title.trim(), notes, status: 'todo', createdAt: extra?.createdAt ?? now, updatedAt: now };
         set((s) => ({ nodes: [...s.nodes, node] }));
         return id;
       },

@@ -13,11 +13,6 @@ import { startSession } from '../../lib/session';
 import { useStore } from '../../store';
 import { colors, fonts } from '../../theme';
 
-const COMING = [
-  ['Suggest next steps', 'Ideas for what to branch into next on any step of your tree, one tap to add.'],
-  ['New skills for you', 'Suggestions based on what you already practise and enjoy.'],
-  ['Weekly coaching note', 'A short read on your week, from your real sessions.'],
-];
 
 /** Tappable card when it leads somewhere, plain card when it doesn't. */
 function Wrap({ onPress, style, children }: { onPress?: () => void; style: object; children: ReactNode }) {
@@ -50,11 +45,33 @@ export default function Coach() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: TAB_BAR_HEIGHT + 32, gap: 16 }}>
         <Text style={{ fontFamily: fonts.display, fontSize: 32, lineHeight: 36 }} accessibilityRole="header">Coach</Text>
 
+        <Animated.View entering={reduce ? undefined : FadeInDown.springify().dampingRatio(1).duration(360)}>
+          <PressableScale
+            onPress={() => router.push('/coach/new')}
+            accessibilityRole="button"
+            accessibilityLabel="Plan a new skill with the coach"
+            style={{ padding: 18, backgroundColor: colors.ink, borderRadius: 24, gap: 12 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
+                <Sparkles size={20} color={colors.ink} strokeWidth={2.25} />
+              </View>
+              <Text style={{ fontFamily: fonts.displaySemi, fontSize: 20, color: colors.lime }}>Learn something new</Text>
+            </View>
+            <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 21, color: colors.paper }}>
+              Say what you want to learn. The coach maps the path to mastery as a skill tree, with a short lesson for every step.
+            </Text>
+            <View style={{ alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: colors.lime }}>
+              <Text style={{ fontFamily: fonts.displaySemi, fontSize: 16, color: colors.ink }}>Make a plan →</Text>
+            </View>
+          </PressableScale>
+        </Animated.View>
+
         {insights.length === 0 ? (
           <Text variant="body" style={{ color: colors.muted }}>Log a few sessions and your coach will start noticing patterns.</Text>
         ) : (
           insights.map((i, idx) => (
-            <Animated.View key={i.id} entering={reduce ? undefined : FadeInDown.delay(40 + idx * 60).springify().dampingRatio(1).duration(360)}>
+            <Animated.View key={i.id} entering={reduce ? undefined : FadeInDown.delay(100 + idx * 60).springify().dampingRatio(1).duration(360)}>
               <Wrap
                 onPress={i.skillId ? () => act(i) : undefined}
                 style={{ padding: 16, backgroundColor: idx === 0 ? colors.lime : colors.white, borderWidth: 3, borderColor: colors.ink, borderRadius: 20, gap: 6 }}
@@ -71,20 +88,6 @@ export default function Coach() {
           ))
         )}
 
-        <View style={{ marginTop: 8, padding: 18, backgroundColor: colors.ink, borderRadius: 24, gap: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
-              <Sparkles size={20} color={colors.ink} strokeWidth={2.25} />
-            </View>
-            <Text style={{ fontFamily: fonts.displaySemi, fontSize: 20, color: colors.lime }}>AI coach, coming soon</Text>
-          </View>
-          {COMING.map(([t, b]) => (
-            <View key={t} style={{ gap: 2 }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.paper }}>{t}</Text>
-              <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 19, color: colors.paper, opacity: 0.8 }}>{b}</Text>
-            </View>
-          ))}
-        </View>
       </ScrollView>
     </SafeAreaView>
   );

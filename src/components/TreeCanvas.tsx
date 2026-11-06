@@ -87,6 +87,8 @@ type Props = {
   onAddNode: (parentId: string | null) => void;
   /** Bump to re-fit the view (e.g. after adding the first step). */
   fitKey?: number;
+  /** Open at the left edge instead of centred on the skill: plans read left to right from stage 1. */
+  startLeft?: boolean;
 };
 
 /**
@@ -94,7 +96,7 @@ type Props = {
  * keeps gliding with the flick's velocity; pinch zooms around the fingers; a
  * double-tap springs back to fit the whole tree.
  */
-export function TreeCanvas({ skill, nodes, sessions, onOpenNode, onAddNode, fitKey = 0 }: Props) {
+export function TreeCanvas({ skill, nodes, sessions, onOpenNode, onAddNode, fitKey = 0, startLeft = false }: Props) {
   const reduce = useReducedMotion();
   const layout = useMemo(() => layoutTree(nodes), [nodes]);
   const view = useSharedValue({ w: 0, h: 0 });
@@ -112,7 +114,7 @@ export function TreeCanvas({ skill, nodes, sessions, onOpenNode, onAddNode, fitK
     'worklet';
     if (!w) return;
     const s = Math.min(1, Math.max(0.78, (w - 32) / LW));
-    const x = Math.min(16, Math.max(w - LW * s - 16, w / 2 - rootX * s));
+    const x = startLeft ? 16 - 24 * s : Math.min(16, Math.max(w - LW * s - 16, w / 2 - rootX * s));
     const y = 12;
     if (animate) {
       tx.value = withSpring(x, springs.ui);
