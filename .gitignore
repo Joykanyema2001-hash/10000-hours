@@ -8,4 +8,3 @@ android/
 *.log
 .DS_Store
 .agents/
-supabase/.temp/
