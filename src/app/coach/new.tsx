@@ -150,7 +150,7 @@ export default function NewPlan() {
                 </Animated.View>
                 <Animated.View entering={rise(2)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {IDEAS.map((idea) => (
-                    <Chip key={idea} label={idea} selected={goal === idea} onPress={() => setGoal(idea)} />
+                    <Chip fit key={idea} label={idea} selected={goal === idea} onPress={() => setGoal(idea)} />
                   ))}
                 </Animated.View>
                 <Animated.View entering={rise(3)}>
@@ -170,7 +170,7 @@ export default function NewPlan() {
                     <Text variant="heading">{q.question}</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {q.options.map((o) => (
-                        <Chip key={o} label={o} selected={answers[i] === o} onPress={() => setAnswers((a) => ({ ...a, [i]: o }))} />
+                        <Chip fit key={o} label={o} selected={answers[i] === o} onPress={() => setAnswers((a) => ({ ...a, [i]: o }))} />
                       ))}
                     </View>
                   </Animated.View>
