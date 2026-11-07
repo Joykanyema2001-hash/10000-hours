@@ -30,6 +30,8 @@ const ICONS = [
 ] as const;
 // Must match VISUALS in src/lib/coach.ts.
 const VISUALS = ['target', 'lightbulb', 'eye', 'hand', 'footprints', 'wind', 'ear', 'brain', 'heart', 'repeat', 'timer', 'zap', 'book', 'dumbbell', 'scale', 'rocket'] as const;
+// Must match DIAGRAMS in src/lib/coach.ts.
+const DIAGRAMS = ['code', 'terminal', 'cycle', 'intervals', 'compare', 'none'] as const;
 
 const Questions = z.object({
   skillName: z.string().describe('Short name for the skill, e.g. "Swimming"'),
@@ -70,6 +72,20 @@ const Lesson = z.object({
       }),
     )
     .describe('Exactly 5 scenes in this order: hook, idea, steps, mistakes, drill'),
+  diagram: z
+    .object({
+      type: z.string().describe(`One of: ${DIAGRAMS.join(', ')}`),
+      frames: z
+        .array(
+          z.object({
+            label: z.string().describe('At most 5 words'),
+            lines: z.array(z.string()).describe('0 to 6 short lines of at most 34 characters'),
+            value: z.number().nullable().describe('Seconds for a cycle phase, minutes for an interval block, otherwise null'),
+          }),
+        )
+        .describe('One frame per step of the steps scene, in order (compare: exactly 2 frames, wrong then right)'),
+    })
+    .describe('A small animated diagram that shows the steps scene, so visual learners can follow along'),
 });
 
 const STYLE = `You are the coach inside 10,000 Hours, an app where people track deliberate practice toward mastery.
@@ -126,8 +142,24 @@ const pick = <T extends string>(v: string, allowed: readonly T[], fallback: T): 
 
 const clean = (s: unknown, max: number) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, max) : '');
 /** Same normalisation as lessonKey() in src/lib/coach.ts. */
+// The "v2" prefix makes lessons regenerate with diagrams; bump it when the lesson shape changes.
 const lessonKey = (skill: string, step: string) =>
-  `${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  `v2::${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+type RawDiagram = { type: string; frames: { label: string; lines: string[]; value: number | null }[] };
+/** Keep diagrams small enough for a phone and drop ones that don't fit their type. */
+function cleanDiagram(d: RawDiagram | undefined): RawDiagram {
+  if (!d) return { type: 'none', frames: [] };
+  const type = pick(d.type, DIAGRAMS, 'none');
+  const keepSpaces = type === 'code' || type === 'terminal';
+  const frames = (d.frames ?? []).slice(0, 6).map((f) => ({
+    label: clean(f.label, 40),
+    lines: (f.lines ?? []).slice(0, 6).map((l) => (keepSpaces && typeof l === 'string' ? l.replace(/\s+$/, '').slice(0, 44) : clean(l, 60))),
+    value: typeof f.value === 'number' && f.value > 0 ? Math.min(600, Math.round(f.value * 10) / 10) : null,
+  }));
+  if (type === 'none' || frames.length === 0 || (type === 'compare' && frames.length !== 2)) return { type: 'none', frames: [] };
+  return { type, frames };
+}
 
 async function take(userId: string, kind: keyof typeof LIMITS) {
   const limit = TESTERS.has(userId) ? TESTER_LIMITS[kind] : LIMITS[kind];
@@ -212,7 +244,16 @@ Deno.serve(async (req) => {
       const lesson = await generate(
         FAST_MODEL,
         Lesson,
-        `Make a short swipeable lesson for one step of learning ${skill}.\nStep: "${step}"${notes ? `\nAbout this step: ${notes}` : ''}\n\nFive scenes, like a great short teaching video broken into cards:\n1. hook: why this step matters, in a way that makes them want to try it\n2. idea: the one key idea or feel to aim for\n3. steps: how to do it, as up to 4 short ordered bullets\n4. mistakes: the most common mistakes, as up to 4 short bullets saying what to do instead\n5. drill: one specific practice drill with a length in minutes\nGive every scene a specific title about this step, never a generic one like "How to do it" or "Common mistakes" (the app already labels each scene). Pick the visual that best fits each scene.`,
+        `Make a short swipeable lesson for one step of learning ${skill}.\nStep: "${step}"${notes ? `\nAbout this step: ${notes}` : ''}\n\nFive scenes, like a great short teaching video broken into cards:\n1. hook: why this step matters, in a way that makes them want to try it\n2. idea: the one key idea or feel to aim for\n3. steps: how to do it, as up to 4 short ordered bullets\n4. mistakes: the most common mistakes, as up to 4 short bullets saying what to do instead\n5. drill: one specific practice drill with a length in minutes\nGive every scene a specific title about this step, never a generic one like "How to do it" or "Common mistakes" (the app already labels each scene). Pick the visual that best fits each scene.
+
+Also make one small animated diagram for the steps scene, with one frame per step in the same order, so a visual learner can follow along:
+- code: writing code. Each frame's lines are the code added at that step, with real indentation (2 spaces). Keep lines under 34 characters.
+- terminal: command-line steps. Each frame: the command first, then up to 2 lines of the output it prints.
+- cycle: a repeated movement, rhythm or loop (a stroke, breathing, a practice loop). Each frame is one phase with a short label; value is its length in seconds if timing matters.
+- intervals: timed blocks (run and walk, practice blocks, rests). Each frame is one block; value is its length in minutes.
+- compare: getting a position, form or setup right. Exactly 2 frames: first the wrong way, then the right way, each with 2 to 4 short lines describing it.
+- none: only if none of these would genuinely help.
+Diagram text must be accurate and match the steps.`,
         'low',
         6000,
       );
@@ -225,6 +266,7 @@ Deno.serve(async (req) => {
         bullets: s.bullets.slice(0, 4).map((b) => clean(b, 90)),
         minutes: pick(s.kind, KINDS, KINDS[Math.min(i, 4)]) === 'drill' && typeof s.minutes === 'number' ? Math.max(1, Math.min(60, Math.round(s.minutes))) : null,
       }));
+      lesson.diagram = cleanDiagram(lesson.diagram);
       // A hidden (reported) lesson is regenerated and replaces the old one.
       await admin.from('lessons').upsert({ key, skill, step, lesson, reports: 0, hidden: false });
       return reply(200, { key, lesson, cached: false });

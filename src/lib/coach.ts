@@ -16,7 +16,11 @@ export type SceneKind = 'hook' | 'idea' | 'steps' | 'mistakes' | 'drill';
 export const VISUALS = ['target', 'lightbulb', 'eye', 'hand', 'footprints', 'wind', 'ear', 'brain', 'heart', 'repeat', 'timer', 'zap', 'book', 'dumbbell', 'scale', 'rocket'] as const;
 export type Visual = (typeof VISUALS)[number];
 export type Scene = { kind: SceneKind; title: string; body: string; bullets: string[]; visual: Visual; minutes: number | null };
-export type Lesson = { title: string; scenes: Scene[] };
+/** Must match DIAGRAMS in the Edge Function. */
+export type DiagramType = 'code' | 'terminal' | 'cycle' | 'intervals' | 'compare' | 'none';
+export type DiagramFrame = { label: string; lines: string[]; value: number | null };
+export type Diagram = { type: DiagramType; frames: DiagramFrame[] };
+export type Lesson = { title: string; scenes: Scene[]; diagram?: Diagram };
 
 export class CoachError extends Error {
   constructor(public code: string, message: string) {
@@ -43,7 +47,7 @@ export const makePlan = (goal: string, answers: { question: string; answer: stri
 
 /** Same normalisation as the Edge Function, so a lesson is found offline by the same key. */
 export const lessonKey = (skill: string, step: string) =>
-  `${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  `v2::${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 const cacheKey = (key: string) => `tenk-lesson:${key}`;
 

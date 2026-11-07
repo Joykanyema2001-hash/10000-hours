@@ -37,11 +37,12 @@ import Animated, {
   withTiming,
   ZoomIn,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { diagramFrames, LessonDiagram } from '../../components/LessonDiagram';
 import { AppleSignInButton } from '../../components/AppleSignInButton';
 import { Button } from '../../components/Button';
 import { Text } from '../../components/Text';
-import { CoachError, getLesson, reportLesson, type Lesson, type Scene, type SceneKind, type Visual } from '../../lib/coach';
+import { CoachError, getLesson, reportLesson, type Diagram, type Lesson, type Scene, type SceneKind, type Visual } from '../../lib/coach';
 import { haptics } from '../../lib/haptics';
 import { notify } from '../../lib/notify';
 import { startSession } from '../../lib/session';
@@ -77,15 +78,15 @@ function Visual({ visual, active }: { visual: Visual; active: boolean }) {
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: -8 * float.value }, { rotate: `${-4 + 8 * float.value}deg` }] }));
   return (
     <Animated.View entering={reduce ? undefined : ZoomIn.springify().dampingRatio(0.7).duration(500)} style={style}>
-      <View style={{ width: 112, height: 112, borderRadius: 32, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: colors.paper }}>
-        <Icon size={56} color={colors.ink} strokeWidth={2.25} />
+      <View style={{ width: 96, height: 96, borderRadius: 28, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: colors.paper }}>
+        <Icon size={48} color={colors.ink} strokeWidth={2.25} />
       </View>
     </Animated.View>
   );
 }
 
 /** "How to do it" as a flow: numbered stops joined by a line that draws downward. */
-function StepFlow({ items, delay }: { items: string[]; delay: number }) {
+function StepFlow({ items, delay, active = null, onPick }: { items: string[]; delay: number; active?: number | null; onPick?: (i: number) => void }) {
   const reduce = useReducedMotion();
   const grow = useSharedValue(reduce ? 1 : 0);
   useEffect(() => {
@@ -97,15 +98,20 @@ function StepFlow({ items, delay }: { items: string[]; delay: number }) {
       <Animated.View style={[{ position: 'absolute', left: 15, top: 16, bottom: 16, width: 3, borderRadius: 2, backgroundColor: colors.lime, transformOrigin: 'top' }, line]} />
       <View style={{ gap: 14 }}>
         {items.map((b, i) => (
-          <Animated.View
-            key={b + i}
-            entering={reduce ? FadeIn.duration(200) : FadeInDown.delay(delay + i * 260).springify().dampingRatio(0.8).duration(380)}
-            style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}
-          >
-            <View style={{ width: 33, height: 33, borderRadius: 17, backgroundColor: colors.lime, borderWidth: 3, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: colors.ink }}>{i + 1}</Text>
-            </View>
-            <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 17, lineHeight: 23, color: colors.paper }}>{b}</Text>
+          <Animated.View key={b + i} entering={reduce ? FadeIn.duration(200) : FadeInDown.delay(delay + i * 260).springify().dampingRatio(0.8).duration(380)}>
+            <Pressable
+              onPress={onPick ? () => onPick(i) : undefined}
+              disabled={!onPick}
+              accessibilityRole={onPick ? 'button' : undefined}
+              accessibilityLabel={onPick ? `Show step ${i + 1}: ${b}` : undefined}
+              style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}
+            >
+              {/* Solid circles (dimmed by colour, not opacity) so the connecting line never shows through. */}
+              <View style={{ width: 33, height: 33, borderRadius: 17, backgroundColor: active == null || active === i ? colors.lime : '#4E6620', borderWidth: 3, borderColor: active === i ? colors.paper : colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.display, fontSize: 16, lineHeight: 20, color: colors.ink }}>{i + 1}</Text>
+              </View>
+              <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: active == null ? 17 : 16, lineHeight: 22, color: colors.paper, opacity: active == null || active === i ? 1 : 0.45 }}>{b}</Text>
+            </Pressable>
           </Animated.View>
         ))}
       </View>
@@ -176,8 +182,32 @@ function DrillRing({ minutes }: { minutes: number }) {
   );
 }
 
-function SceneView({ scene, active, height, isFirst, onDrill }: { scene: Scene; active: boolean; height: number; isFirst: boolean; onDrill: (minutes: number) => void }) {
+function SceneView({ scene, diagram, active, height, isFirst, onDrill }: { scene: Scene; diagram?: Diagram; active: boolean; height: number; isFirst: boolean; onDrill: (minutes: number) => void }) {
   const reduce = useReducedMotion();
+  const insets = useSafeAreaInsets();
+  // The steps scene plays its diagram frame by frame; the matching step lights up.
+  const showDiagram = scene.kind === 'steps' && !!diagram && diagram.type !== 'none' && diagram.frames.length > 0;
+  const count = showDiagram ? diagramFrames(diagram!) : 0;
+  // Busy scenes skip the icon tile so everything fits on one screen.
+  const busy = showDiagram || scene.bullets.length >= 3;
+  const [frame, setFrame] = useState(0);
+  const [auto, setAuto] = useState(true);
+  useEffect(() => {
+    if (!active) {
+      setFrame(0);
+      setAuto(true);
+    }
+  }, [active]);
+  useEffect(() => {
+    if (!showDiagram || !active || !auto || count < 2) return;
+    const t = setInterval(() => setFrame((f) => (f + 1) % count), diagram!.type === 'code' || diagram!.type === 'terminal' ? 3200 : 2600);
+    return () => clearInterval(t);
+  }, [showDiagram, active, auto, count, diagram]);
+  const pick = (i: number) => {
+    haptics.select();
+    setAuto(false);
+    setFrame(diagram?.type === 'compare' ? i % 2 : Math.min(i, count - 1));
+  };
   const enter = (n: number) => (reduce ? FadeIn.duration(200) : FadeInDown.delay(120 + n * 90).springify().dampingRatio(1).duration(420));
   const nudge = useSharedValue(0);
   useEffect(() => {
@@ -187,22 +217,35 @@ function SceneView({ scene, active, height, isFirst, onDrill }: { scene: Scene; 
   const nudgeStyle = useAnimatedStyle(() => ({ transform: [{ translateY: nudge.value }] }));
 
   return (
-    <View style={{ height, paddingHorizontal: 24, paddingTop: 72, paddingBottom: 40, justifyContent: 'center' }}>
+    <View style={{ height, paddingHorizontal: 24, paddingTop: insets.top + 64, paddingBottom: insets.bottom + 36 }}>
+      {/* Spacers centre short scenes; tall ones start right under the header instead of hiding behind it. */}
+      <View style={{ flexGrow: 1, flexShrink: 1, minHeight: 0 }} />
       {/* Remount on activation so each scene animates in when you reach it. */}
       {active ? (
-        <View style={{ gap: 18 }}>
-          {scene.kind === 'drill' ? <DrillRing minutes={scene.minutes ?? 10} /> : <Visual visual={scene.visual} active={active} />}
+        <View style={{ gap: showDiagram ? 14 : 18, flexShrink: 0 }}>
+          {scene.kind === 'drill' ? <DrillRing minutes={scene.minutes ?? 10} /> : busy ? null : <Visual visual={scene.visual} active={active} />}
           <Animated.View entering={enter(0)} style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 2, borderColor: colors.lime }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.lime }}>{KIND_LABEL[scene.kind]}</Text>
           </Animated.View>
           <Animated.View entering={enter(1)}>
-            <Text style={{ fontFamily: fonts.display, fontSize: 34, lineHeight: 38, color: colors.paper }} accessibilityRole="header">{scene.title}</Text>
+            <Text style={{ fontFamily: fonts.display, fontSize: busy ? 28 : 32, lineHeight: busy ? 32 : 36, color: colors.paper }} accessibilityRole="header">{scene.title}</Text>
           </Animated.View>
-          <Animated.View entering={enter(2)}>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 18, lineHeight: 26, color: colors.paper, opacity: 0.9 }}>{scene.body}</Text>
-          </Animated.View>
+          {showDiagram ? (
+            <Animated.View entering={enter(2)}>
+              <LessonDiagram diagram={diagram!} frame={frame} />
+            </Animated.View>
+          ) : (
+            <Animated.View entering={enter(2)}>
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 18, lineHeight: 26, color: colors.paper, opacity: 0.9 }}>{scene.body}</Text>
+            </Animated.View>
+          )}
           {scene.kind === 'steps' && scene.bullets.length ? (
-            <StepFlow items={scene.bullets} delay={120 + 3 * 90} />
+            <StepFlow
+              items={scene.bullets}
+              delay={120 + 3 * 90}
+              active={showDiagram && diagram!.type !== 'compare' ? frame : null}
+              onPick={showDiagram ? pick : undefined}
+            />
           ) : scene.kind === 'mistakes' && scene.bullets.length ? (
             <View style={{ gap: 10 }}>
               {scene.bullets.map((b, i) => (
@@ -230,6 +273,7 @@ function SceneView({ scene, active, height, isFirst, onDrill }: { scene: Scene; 
           ) : null}
         </View>
       ) : null}
+      <View style={{ flexGrow: 1, flexShrink: 1, minHeight: 0 }} />
       {isFirst && active ? (
         <Animated.View entering={FadeIn.delay(900)} style={[{ position: 'absolute', bottom: 20, left: 0, right: 0, alignItems: 'center' }, nudgeStyle]}>
           <ChevronUp size={22} color={colors.lime} strokeWidth={2.5} />
@@ -301,7 +345,7 @@ export default function LessonScreen() {
         {state.at === 'ready' && height ? (
           <ScrollView pagingEnabled showsVerticalScrollIndicator={false} onScroll={onPage} scrollEventThrottle={32} decelerationRate="fast">
             {scenes.map((s, i) => (
-              <SceneView key={i} scene={s} active={i === index} height={height} isFirst={i === 0} onDrill={drill} />
+              <SceneView key={i} scene={s} diagram={state.at === 'ready' ? state.lesson.diagram : undefined} active={i === index} height={height} isFirst={i === 0} onDrill={drill} />
             ))}
           </ScrollView>
         ) : state.at === 'loading' ? (
