@@ -106,7 +106,7 @@ export default function RootLayout() {
         <Stack.Screen name="step/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="session-note/[id]" options={{ gestureEnabled: false }} />
         <Stack.Screen name="milestones" />
-        <Stack.Screen name="coach/new" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
+        <Stack.Screen name="coach/new" options={{ contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="lesson/[id]" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: colors.ink } }} />
         <Stack.Screen name="settings" />
         <Stack.Screen name="import" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />

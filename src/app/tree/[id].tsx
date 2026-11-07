@@ -8,6 +8,7 @@ import { Text } from '../../components/Text';
 import { TreeCanvas } from '../../components/TreeCanvas';
 import { useStore } from '../../store';
 import { colors, fonts } from '../../theme';
+import { RouteError } from '../../components/RouteError';
 
 /** Full-screen, zoomable skill tree. */
 export default function TreeScreen() {
@@ -15,7 +16,15 @@ export default function TreeScreen() {
   const skill = useStore((s) => s.skills.find((k) => k.id === id));
   const nodes = useStore(useShallow((s) => s.nodes.filter((n) => n.skillId === id)));
   const sessions = useStore(useShallow((s) => s.sessions.filter((x) => x.skillId === id)));
-  if (!skill) return null;
+  if (!skill) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper, padding: 24, gap: 16, justifyContent: 'center' }}>
+        <Text variant="title" accessibilityRole="header">Tree not found</Text>
+        <Text variant="body" style={{ color: colors.muted }}>This skill may have been deleted or not finished saving.</Text>
+        <Button label="Go to my skills" onPress={() => router.replace('/(tabs)/skills')} />
+      </SafeAreaView>
+    );
+  }
 
   const mastered = nodes.filter((n) => n.status === 'mastered').length;
   const learning = nodes.filter((n) => n.status === 'learning').length;
@@ -64,3 +73,5 @@ export default function TreeScreen() {
     </SafeAreaView>
   );
 }
+
+export { RouteError as ErrorBoundary };

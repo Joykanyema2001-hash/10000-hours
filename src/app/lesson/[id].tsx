@@ -47,6 +47,7 @@ import { notify } from '../../lib/notify';
 import { startSession } from '../../lib/session';
 import { useStore } from '../../store';
 import { colors, fonts, springs } from '../../theme';
+import { RouteError } from '../../components/RouteError';
 
 type IconType = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 const VISUAL_ICONS: Record<Visual, IconType> = {
@@ -348,3 +349,5 @@ export default function LessonScreen() {
     </View>
   );
 }
+
+export { RouteError as ErrorBoundary };

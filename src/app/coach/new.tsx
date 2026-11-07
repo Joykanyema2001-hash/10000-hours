@@ -18,6 +18,7 @@ import { applyPlan, askQuestions, CoachError, makePlan, type CoachPlan, type Coa
 import { haptics } from '../../lib/haptics';
 import { notify } from '../../lib/notify';
 import { colors, fonts } from '../../theme';
+import { RouteError } from '../../components/RouteError';
 
 const IDEAS = ['Learn to swim', 'Play guitar chords', 'Speak basic Spanish', 'Draw faces', 'Run a 5k'];
 const LOADING = {
@@ -57,6 +58,7 @@ export default function NewPlan() {
   const [goal, setGoal] = useState('');
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [addedId, setAddedId] = useState<string | null>(null);
 
   const rise = (n: number) => (reduce ? undefined : FadeInDown.delay(40 + n * 50).springify().dampingRatio(1).duration(360));
 
@@ -72,6 +74,7 @@ export default function NewPlan() {
     haptics.select();
     setError(null);
     setAnswers({});
+    setAddedId(null);
     setPhase({ at: 'loading', what: 'questions' });
     try {
       setPhase({ at: 'questions', q: await askQuestions(g) });
@@ -95,7 +98,13 @@ export default function NewPlan() {
   };
 
   const accept = (p: CoachPlan) => {
+    // Adding twice would duplicate every step, so a second tap just opens the tree.
+    if (addedId) {
+      router.replace({ pathname: '/tree/[id]', params: { id: addedId } });
+      return;
+    }
     const id = applyPlan(p);
+    setAddedId(id);
     haptics.success();
     const steps = p.stages.reduce((n, s) => n + s.steps.length, 0);
     notify({ kind: 'info', title: `${p.skillName} is mapped`, body: `${p.stages.length} stages, ${steps} steps. Tap any step for its lesson.` });
@@ -104,7 +113,7 @@ export default function NewPlan() {
 
   const header = (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8 }}>
-      <IconButton kind="close" onPress={() => router.back()} label="Close" />
+      <IconButton kind="back" onPress={() => router.back()} label="Back" />
       {phase.at === 'questions' || phase.at === 'plan' ? (
         <Button size="sm" variant="outline" label="Start over" onPress={() => { setError(null); setPhase({ at: 'goal' }); }} />
       ) : null}
@@ -205,7 +214,7 @@ export default function NewPlan() {
                 <PlanJourney plan={phase.plan} />
 
                 <View style={{ gap: 8 }}>
-                  <Button label="Add to my skills" onPress={() => accept(phase.plan)} />
+                  <Button label={addedId ? 'Open the tree' : 'Add to my skills'} onPress={() => accept(phase.plan)} />
                   <Text variant="caption" style={{ textAlign: 'center' }}>It becomes your skill tree. Edit, add or remove steps any time</Text>
                 </View>
               </>
@@ -216,3 +225,5 @@ export default function NewPlan() {
     </SafeAreaView>
   );
 }
+
+export { RouteError as ErrorBoundary };
