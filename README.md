@@ -120,6 +120,7 @@ Coach tab → **Learn something new**: the coach asks a couple of questions, bui
 - Server: `supabase/functions/coach` (Supabase Edge Function, Claude API). The API key lives only in Supabase secrets (`ANTHROPIC_API_KEY`); the app never sees it.
 - Database: run `supabase/003_coach.sql` once. Lessons are stored by topic and shared, so each one is generated once.
 - Limits per person per month: 20 question rounds, 3 new plans, 40 new lessons (saved lessons are free). Change `LIMITS` in the function.
+- Testers: put user ids (comma-separated) in the `COACH_TESTERS` secret for limits of 500 / 100 / 500.
 - Models: plans use `claude-sonnet-5-5`; questions and lessons use `claude-haiku-5-5`. Override with the `COACH_PLAN_MODEL` / `COACH_FAST_MODEL` secrets (e.g. `claude-opus-5-5` for higher-quality plans).
 - Deploy: `npx supabase functions deploy coach --project-ref jweprragcqwzyvqxyosm --no-verify-jwt` (the function checks sign-in itself).
 - Lessons with 3 reports are hidden and regenerated on next view.

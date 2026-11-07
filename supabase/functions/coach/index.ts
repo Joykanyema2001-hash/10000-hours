@@ -17,6 +17,9 @@ import { z } from 'npm:zod@4.6.7';
 const PLAN_MODEL = Deno.env.get('COACH_PLAN_MODEL') ?? 'claude-sonnet-5-5';
 const FAST_MODEL = Deno.env.get('COACH_FAST_MODEL') ?? 'claude-haiku-5-5';
 const LIMITS = { ask: 20, plan: 3, lesson: 40 } as const;
+// Testers (comma-separated user ids in the COACH_TESTERS secret) get high but still capped limits.
+const TESTER_LIMITS = { ask: 500, plan: 100, lesson: 500 } as const;
+const TESTERS = new Set((Deno.env.get('COACH_TESTERS') ?? '').split(',').map((s) => s.trim()).filter(Boolean));
 const LESSON_HIDE_AFTER = 3;
 
 // Must match SKILL_ICONS in src/lib/skillIcons.ts.
@@ -127,7 +130,8 @@ const lessonKey = (skill: string, step: string) =>
   `${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 async function take(userId: string, kind: keyof typeof LIMITS) {
-  const { data, error } = await admin.rpc('coach_take', { p_user: userId, p_kind: kind, p_limit: LIMITS[kind] });
+  const limit = TESTERS.has(userId) ? TESTER_LIMITS[kind] : LIMITS[kind];
+  const { data, error } = await admin.rpc('coach_take', { p_user: userId, p_kind: kind, p_limit: limit });
   if (error) throw new Error(`usage: ${error.message}`);
   return data === true;
 }
