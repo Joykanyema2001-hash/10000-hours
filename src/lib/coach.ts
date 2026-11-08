@@ -27,6 +27,8 @@ export type DiagramType =
   | 'field'
   | 'chess'
   | 'phrase'
+  | 'pose'
+  | 'sketch'
   | 'cycle'
   | 'intervals'
   | 'compare'
@@ -61,7 +63,7 @@ export const makePlan = (goal: string, answers: { question: string; answer: stri
 
 /** Same normalisation as the Edge Function, so a lesson is found offline by the same key. */
 export const lessonKey = (skill: string, step: string) =>
-  `v3::${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  `v4::${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 const cacheKey = (key: string) => `tenk-lesson:${key}`;
 

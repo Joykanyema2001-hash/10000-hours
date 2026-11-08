@@ -31,7 +31,9 @@ const ICONS = [
 // Must match VISUALS in src/lib/coach.ts.
 const VISUALS = ['target', 'lightbulb', 'eye', 'hand', 'footprints', 'wind', 'ear', 'brain', 'heart', 'repeat', 'timer', 'zap', 'book', 'dumbbell', 'scale', 'rocket'] as const;
 // Must match DIAGRAMS in src/lib/coach.ts.
-const DIAGRAMS = ['code', 'terminal', 'fretboard', 'piano', 'keys', 'build', 'field', 'chess', 'phrase', 'cycle', 'intervals', 'compare', 'none'] as const;
+// Must match POSES in src/lib/poses.ts.
+const POSE_NAMES = ["stand", "arms-up", "arms-forward", "athletic-stance", "squat-half", "squat-bottom", "lunge", "hinge", "row-top", "press-start", "press-top", "curl-top", "plank-high", "pushup-bottom", "plank-forearm", "down-dog", "tree", "run-a", "run-b", "jump", "guard", "jab", "cross", "front-kick", "knee-strike", "shot-set", "shot-release", "streamline", "crawl-catch", "crawl-pull", "crawl-recover", "flutter-a", "flutter-b", "breast-pull", "breast-kick"];
+const DIAGRAMS = ['code', 'terminal', 'fretboard', 'piano', 'keys', 'build', 'field', 'chess', 'phrase', 'pose', 'sketch', 'cycle', 'intervals', 'compare', 'none'] as const;
 
 const Questions = z.object({
   skillName: z.string().describe('Short name for the skill, e.g. "Swimming"'),
@@ -145,7 +147,7 @@ const clean = (s: unknown, max: number) => (typeof s === 'string' ? s.replace(/\
 /** Same normalisation as lessonKey() in src/lib/coach.ts. */
 // The "v2" prefix makes lessons regenerate with diagrams; bump it when the lesson shape changes.
 const lessonKey = (skill: string, step: string) =>
-  `v3::${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  `v4::${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 type RawDiagram = { type: string; frames: { label: string; lines: string[]; value: number | null }[]; meta?: string[] };
 /** Keep diagrams small enough for a phone and drop ones that don't fit their type. */
@@ -256,6 +258,8 @@ Also make one animated diagram for the steps scene, with one frame per step in t
 - field (team sports, racket sports, game maps and positioning): meta ["soccer"|"basketball"|"tennis"|"map"]. Coordinates 0 to 100 across and down. Each frame: lines place things that move between frames: "a1 30 50" (your team, number 1), "b2 60 40" (opponents), "me 40 60" (the learner), "ball 32 50", "cone 50 50", "target 80 30"; and things shown on this frame only: "pass x1 y1 x2 y2", "shot x1 y1 x2 y2", "run x1 y1 x2 y2", "zone x y r". Keep positions realistic for the sport.
 - chess: meta [a FEN, or "start"]. One frame per move: label like "1. e4", lines[0] the move as from and to squares like "e2e4" (promotion "e7e8q", castling "e1g1"), lines[1] a short reason. Moves must be legal.
 - phrase (languages): meta [language name, "rtl" if written right to left]. Each frame is a phrase: label is its English meaning; lines are its words in order as "word | pronunciation | meaning".
+- pose (fitness, yoga, swimming technique, martial arts, boxing, running form, basketball shooting): meta ["ground"|"water"]. Each frame: label names the position; lines[0] is one preset pose name from this list, exactly: ${POSE_NAMES.join(', ')}; lines[1] is a short coaching cue (under 8 words); lines[2] is optional, the body part to watch: head, shoulders, elbows, hands, back, hips, knees or feet. Sequence poses to show the movement (e.g. stand, squat-half, squat-bottom, squat-half, stand).
+- sketch (drawing, painting, lettering, design basics): a 100 by 100 canvas, x right and y down. Each frame's lines are the strokes added at that step: "circle cx cy r", "ellipse cx cy rx ry", "line x1 y1 x2 y2", "curve x1 y1 cx cy x2 y2" (a curve bent toward the control point cx cy), "arc cx cy r startDeg endDeg" (0 is right, 90 is down), "rect x y w h". Start with construction shapes, then refine. Keep proportions accurate.
 - code: writing code. Each frame's lines are the code added at that step, with real indentation (2 spaces). Lines under 34 characters.
 - terminal: command-line steps. Each frame: the command first, then up to 2 lines of output.
 - intervals: timed blocks (run and walk, practice blocks, rests). Each frame is one block; value is minutes.

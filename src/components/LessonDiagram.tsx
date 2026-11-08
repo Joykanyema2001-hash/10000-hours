@@ -12,6 +12,8 @@ import { Fretboard } from './diagrams/Fretboard';
 import { Keys } from './diagrams/Keys';
 import { Phrase } from './diagrams/Phrase';
 import { Piano } from './diagrams/Piano';
+import { PoseDiagram } from './diagrams/Pose';
+import { Sketch } from './diagrams/Sketch';
 import { colors, fonts } from '../theme';
 import { Text } from './Text';
 
@@ -43,6 +45,10 @@ export function LessonDiagram({ diagram, frame }: { diagram: Diagram; frame: num
       return <Chess {...props} />;
     case 'phrase':
       return <Phrase {...props} />;
+    case 'pose':
+      return <PoseDiagram {...props} />;
+    case 'sketch':
+      return <Sketch {...props} />;
     case 'code':
       return <Editor frames={diagram.frames} frame={frame} />;
     case 'terminal':
