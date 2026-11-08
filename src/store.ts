@@ -70,8 +70,10 @@ type State = {
   /** Settings */
   reminderHour: number | null;
   hapticsOn: boolean;
+  /** When the person agreed to send coach requests to Anthropic, or null if not yet. */
+  aiConsentAt: number | null;
   minuteTicks: boolean;
-  setSetting: (patch: Partial<Pick<State, 'reminderHour' | 'hapticsOn' | 'minuteTicks' | 'dailyGoalMin'>>) => void;
+  setSetting: (patch: Partial<Pick<State, 'reminderHour' | 'hapticsOn' | 'minuteTicks' | 'dailyGoalMin' | 'aiConsentAt'>>) => void;
   addSkill: (name: string, priorHours: number, icon?: string) => string;
   updateSkill: (id: string, patch: Partial<Pick<Skill, 'name' | 'icon' | 'priorMs'>>) => void;
   /** Removes the skill and all of its sessions. Refused while it has a running session. */
@@ -120,6 +122,7 @@ export const useStore = create<State>()(
       tombstones: noTombstones(),
       reminderHour: 19,
       hapticsOn: true,
+      aiConsentAt: null,
       minuteTicks: true,
 
       setSetting: (patch) => set(patch),
@@ -246,7 +249,7 @@ export const useStore = create<State>()(
           };
         }),
 
-      resetAll: () => set({ skills: [], sessions: [], nodes: [], active: null, lastSkillId: null, celebrated: {}, dailyGoalMin: 120, tombstones: noTombstones() }),
+      resetAll: () => set({ skills: [], sessions: [], nodes: [], active: null, lastSkillId: null, celebrated: {}, dailyGoalMin: 120, tombstones: noTombstones(), aiConsentAt: null }),
 
       setDailyGoal: (min) => set({ dailyGoalMin: min }),
 
@@ -307,8 +310,8 @@ export const useStore = create<State>()(
         }
         return p as State;
       },
-      partialize: ({ skills, sessions, nodes, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones }) => ({
-        skills, sessions, nodes, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones,
+      partialize: ({ skills, sessions, nodes, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones, aiConsentAt }) => ({
+        skills, sessions, nodes, dailyGoalMin, active, lastSkillId, celebrated, reminderHour, hapticsOn, minuteTicks, tombstones, aiConsentAt,
       }),
     },
   ),

@@ -16,6 +16,8 @@ import { Text } from '../../components/Text';
 import { useAuth } from '../../lib/auth';
 import { applyPlan, askQuestions, CoachError, makePlan, type CoachPlan, type CoachQuestions } from '../../lib/coach';
 import { haptics } from '../../lib/haptics';
+import { openLegal, PRIVACY_URL, TERMS_URL } from '../../lib/legal';
+import { useStore } from '../../store';
 import { notify } from '../../lib/notify';
 import { colors, fonts } from '../../theme';
 import { RouteError } from '../../components/RouteError';
@@ -54,6 +56,8 @@ function Loading({ what }: { what: keyof typeof LOADING }) {
 export default function NewPlan() {
   const reduce = useReducedMotion();
   const signedIn = useAuth((s) => !!s.session);
+  const consented = useStore((s) => s.aiConsentAt != null);
+  const setSetting = useStore((s) => s.setSetting);
   const [phase, setPhase] = useState<Phase>({ at: 'goal' });
   const [goal, setGoal] = useState('');
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -131,6 +135,40 @@ export default function NewPlan() {
           </Text>
           <AppleSignInButton />
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!consented) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+        {header}
+        <ScrollView contentContainerStyle={{ padding: 24, gap: 16, flexGrow: 1, justifyContent: 'center' }}>
+          <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}>
+            <Sparkles size={28} color={colors.lime} strokeWidth={2.25} />
+          </View>
+          <Text variant="title" accessibilityRole="header">Before you use the coach</Text>
+          <Text variant="bodyMedium">The coach is powered by Claude, an AI from Anthropic.</Text>
+          <View style={{ gap: 10 }}>
+            {[
+              'What you type here (your goal and answers) and the steps you open lessons for are sent to Anthropic to write your plan and lessons.',
+              'Your name, email and practice history are never sent.',
+              'Lessons are saved by topic and may be shown to others learning the same thing. They never include your details.',
+              'AI can be wrong. Treat plans and lessons as guidance, and learn anything risky, like swimming or lifting, with a qualified instructor.',
+            ].map((t) => (
+              <View key={t} style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.ink, marginTop: 8 }} />
+                <Text variant="body" style={{ flex: 1 }}>{t}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            <Text variant="label" style={{ textDecorationLine: 'underline' }} accessibilityRole="link" onPress={() => openLegal(PRIVACY_URL)}>Privacy Policy</Text>
+            <Text variant="label" style={{ textDecorationLine: 'underline' }} accessibilityRole="link" onPress={() => openLegal(TERMS_URL)}>Terms of Service</Text>
+          </View>
+          <Button label="Agree and continue" onPress={() => { haptics.select(); setSetting({ aiConsentAt: Date.now() }); }} />
+          <Button variant="outline" size="md" label="Not now" onPress={() => router.back()} />
+        </ScrollView>
       </SafeAreaView>
     );
   }

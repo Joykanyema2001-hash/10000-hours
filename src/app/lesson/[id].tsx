@@ -44,6 +44,7 @@ import { Button } from '../../components/Button';
 import { Text } from '../../components/Text';
 import { CoachError, getLesson, reportLesson, type Diagram, type Lesson, type Scene, type SceneKind, type Visual } from '../../lib/coach';
 import { haptics } from '../../lib/haptics';
+import { openLegal, PRIVACY_URL, TERMS_URL } from '../../lib/legal';
 import { notify } from '../../lib/notify';
 import { startSession } from '../../lib/session';
 import { useStore } from '../../store';
@@ -296,6 +297,10 @@ export default function LessonScreen() {
 
   const load = useCallback(() => {
     if (!node || !skill) return;
+    if (useStore.getState().aiConsentAt == null) {
+      setState({ at: 'error', code: 'consent', message: 'Lessons are written by Claude, an AI from Anthropic. The step name is sent to Anthropic to write it; your name, email and practice history are never sent. AI can be wrong, so practise anything risky with a qualified instructor.' });
+      return;
+    }
     setState({ at: 'loading' });
     getLesson(skill.name, node.title, node.notes)
       .then((r) => setState({ at: 'ready', ...r }))
@@ -356,9 +361,21 @@ export default function LessonScreen() {
           </View>
         ) : state.at === 'error' ? (
           <View style={{ flex: 1, justifyContent: 'center', gap: 16, padding: 24 }}>
-            <Text style={{ fontFamily: fonts.display, fontSize: 28, lineHeight: 32, color: colors.lime }}>{state.code === 'signin' ? 'Sign in for lessons' : 'No lesson yet'}</Text>
+            <Text style={{ fontFamily: fonts.display, fontSize: 28, lineHeight: 32, color: colors.lime }}>{state.code === 'signin' ? 'Sign in for lessons' : state.code === 'consent' ? 'Before your first lesson' : 'No lesson yet'}</Text>
             <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, lineHeight: 22, color: colors.paper }}>{state.message}</Text>
-            {state.code === 'signin' ? <AppleSignInButton onDone={load} /> : <Button variant="lime" label="Try again" onPress={load} />}
+            {state.code === 'consent' ? (
+              <>
+                <View style={{ flexDirection: 'row', gap: 16 }}>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.paper, textDecorationLine: 'underline' }} accessibilityRole="link" onPress={() => openLegal(PRIVACY_URL)}>Privacy Policy</Text>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.paper, textDecorationLine: 'underline' }} accessibilityRole="link" onPress={() => openLegal(TERMS_URL)}>Terms of Service</Text>
+                </View>
+                <Button variant="lime" label="Agree and continue" onPress={() => { useStore.getState().setSetting({ aiConsentAt: Date.now() }); load(); }} />
+              </>
+            ) : state.code === 'signin' ? (
+              <AppleSignInButton onDone={load} />
+            ) : (
+              <Button variant="lime" label="Try again" onPress={load} />
+            )}
           </View>
         ) : null}
       </View>

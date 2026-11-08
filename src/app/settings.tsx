@@ -13,6 +13,7 @@ import { GOALS, REMINDER_HOURS } from '../lib/goals';
 import { haptics } from '../lib/haptics';
 import { checkLiveActivitySupport, useLiveActivityStatus } from '../lib/nativeSync';
 import { cancelSessionAlerts } from '../lib/notifications';
+import { openLegal, PRIVACY_URL, TERMS_URL } from '../lib/legal';
 import { notify } from '../lib/notify';
 import { replanNudge } from '../lib/session';
 import { useShallow } from 'zustand/react/shallow';
@@ -178,6 +179,15 @@ export default function Settings() {
           </PressableScale>
           <PressableScale onPress={erase} accessibilityRole="button" accessibilityLabel="Erase everything">
             <Row label="Erase everything" detail="Start again from the welcome screen" last />
+          </PressableScale>
+        </Section>
+
+        <Section title="About">
+          <PressableScale onPress={() => openLegal(PRIVACY_URL)} accessibilityRole="link" accessibilityLabel="Privacy Policy">
+            <Row label="Privacy Policy" detail="What we collect and who we share it with" />
+          </PressableScale>
+          <PressableScale onPress={() => openLegal(TERMS_URL)} accessibilityRole="link" accessibilityLabel="Terms of Service">
+            <Row label="Terms of Service" detail="Using the app and the AI coach safely" last />
           </PressableScale>
         </Section>
 
