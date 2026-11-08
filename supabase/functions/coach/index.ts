@@ -31,7 +31,7 @@ const ICONS = [
 // Must match VISUALS in src/lib/coach.ts.
 const VISUALS = ['target', 'lightbulb', 'eye', 'hand', 'footprints', 'wind', 'ear', 'brain', 'heart', 'repeat', 'timer', 'zap', 'book', 'dumbbell', 'scale', 'rocket'] as const;
 // Must match DIAGRAMS in src/lib/coach.ts.
-const DIAGRAMS = ['code', 'terminal', 'cycle', 'intervals', 'compare', 'none'] as const;
+const DIAGRAMS = ['code', 'terminal', 'fretboard', 'piano', 'keys', 'build', 'field', 'chess', 'phrase', 'cycle', 'intervals', 'compare', 'none'] as const;
 
 const Questions = z.object({
   skillName: z.string().describe('Short name for the skill, e.g. "Swimming"'),
@@ -79,11 +79,12 @@ const Lesson = z.object({
         .array(
           z.object({
             label: z.string().describe('At most 5 words'),
-            lines: z.array(z.string()).describe('0 to 6 short lines of at most 34 characters'),
-            value: z.number().nullable().describe('Seconds for a cycle phase, minutes for an interval block, otherwise null'),
+            lines: z.array(z.string()).describe('Content for this frame, in the format the diagram type asks for'),
+            value: z.number().nullable().describe('A number when the type asks for one, otherwise null'),
           }),
         )
-        .describe('One frame per step of the steps scene, in order (compare: exactly 2 frames, wrong then right)'),
+        .describe('One frame per step of the steps scene, in order (compare: exactly 2; chess: one per move)'),
+      meta: z.array(z.string()).describe('Settings for the diagram type, as the instructions say; empty if none'),
     })
     .describe('A small animated diagram that shows the steps scene, so visual learners can follow along'),
 });
@@ -144,21 +145,22 @@ const clean = (s: unknown, max: number) => (typeof s === 'string' ? s.replace(/\
 /** Same normalisation as lessonKey() in src/lib/coach.ts. */
 // The "v2" prefix makes lessons regenerate with diagrams; bump it when the lesson shape changes.
 const lessonKey = (skill: string, step: string) =>
-  `v2::${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  `v3::${skill}::${step}`.toLowerCase().replace(/[^a-z0-9:]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-type RawDiagram = { type: string; frames: { label: string; lines: string[]; value: number | null }[] };
+type RawDiagram = { type: string; frames: { label: string; lines: string[]; value: number | null }[]; meta?: string[] };
 /** Keep diagrams small enough for a phone and drop ones that don't fit their type. */
-function cleanDiagram(d: RawDiagram | undefined): RawDiagram {
-  if (!d) return { type: 'none', frames: [] };
+function cleanDiagram(d: RawDiagram | undefined): RawDiagram & { meta: string[] } {
+  if (!d) return { type: 'none', frames: [], meta: [] };
   const type = pick(d.type, DIAGRAMS, 'none');
   const keepSpaces = type === 'code' || type === 'terminal';
-  const frames = (d.frames ?? []).slice(0, 6).map((f) => ({
+  const frames = (d.frames ?? []).slice(0, 8).map((f) => ({
     label: clean(f.label, 40),
     lines: (f.lines ?? []).slice(0, 6).map((l) => (keepSpaces && typeof l === 'string' ? l.replace(/\s+$/, '').slice(0, 44) : clean(l, 60))),
     value: typeof f.value === 'number' && f.value > 0 ? Math.min(600, Math.round(f.value * 10) / 10) : null,
   }));
-  if (type === 'none' || frames.length === 0 || (type === 'compare' && frames.length !== 2)) return { type: 'none', frames: [] };
-  return { type, frames };
+  if (type === 'none' || frames.length === 0 || (type === 'compare' && frames.length !== 2)) return { type: 'none', frames: [], meta: [] };
+  const meta = (d.meta ?? []).slice(0, 3).map((m) => (typeof m === 'string' ? m.trim().slice(0, 100) : ''));
+  return { type, frames, meta };
 }
 
 async function take(userId: string, kind: keyof typeof LIMITS) {
@@ -246,13 +248,20 @@ Deno.serve(async (req) => {
         Lesson,
         `Make a short swipeable lesson for one step of learning ${skill}.\nStep: "${step}"${notes ? `\nAbout this step: ${notes}` : ''}\n\nFive scenes, like a great short teaching video broken into cards:\n1. hook: why this step matters, in a way that makes them want to try it\n2. idea: the one key idea or feel to aim for\n3. steps: how to do it, as up to 4 short ordered bullets\n4. mistakes: the most common mistakes, as up to 4 short bullets saying what to do instead\n5. drill: one specific practice drill with a length in minutes\nGive every scene a specific title about this step, never a generic one like "How to do it" or "Common mistakes" (the app already labels each scene). Pick the visual that best fits each scene.
 
-Also make one small animated diagram for the steps scene, with one frame per step in the same order, so a visual learner can follow along:
-- code: writing code. Each frame's lines are the code added at that step, with real indentation (2 spaces). Keep lines under 34 characters.
-- terminal: command-line steps. Each frame: the command first, then up to 2 lines of the output it prints.
-- cycle: a repeated movement, rhythm or loop (a stroke, breathing, a practice loop). Each frame is one phase with a short label; value is its length in seconds if timing matters.
-- intervals: timed blocks (run and walk, practice blocks, rests). Each frame is one block; value is its length in minutes.
-- compare: getting a position, form or setup right. Exactly 2 frames: first the wrong way, then the right way, each with 2 to 4 short lines describing it.
-- none: only if none of these would genuinely help.
+Also make one animated diagram for the steps scene, with one frame per step in the same order, so a visual learner can follow along. Pick the most specific type that fits the skill. Generic types are a last resort.
+- fretboard (guitar, bass, ukulele): meta ["guitar"|"bass"|"ukulele"]. Each frame: label is what to play; lines[0] is a common chord name like "G", "Am", "D7", "Cadd9" or "F" (for bass, instead a 4-character fret shape from the low string up, e.g. "3xxx" for G on the E string); lines[1] is an optional strum pattern like "D D U U D U".
+- piano (piano, keyboard, music theory, singing pitch): each frame: label is the chord or idea, lines are notes with octaves like "C4", "E4", "G4", "Bb3" (or leave lines empty and make the label a chord name like "Am7").
+- keys (video games, typing, software shortcuts): meta ["keyboard"|"gamepad"]. Each frame: label is the action (e.g. "Wall"), lines are the keys or buttons pressed together (e.g. ["Q"], ["Shift", "A"], ["RB"], ["L2", "R2"]); value is the seconds to do it in, or null.
+- build (building games such as Fortnite or Minecraft): a 4 by 4 grid, x and y 0 to 3, height z 0 to 2. Each frame: label is the action with its key, e.g. "Wall · Q"; lines are the pieces added at that step as "floor x y z", "wall x y z dir", "ramp x y z dir" (rising toward dir), "cone x y z", "cube x y z", "player x y z", where dir is n, e, s or w.
+- field (team sports, racket sports, game maps and positioning): meta ["soccer"|"basketball"|"tennis"|"map"]. Coordinates 0 to 100 across and down. Each frame: lines place things that move between frames: "a1 30 50" (your team, number 1), "b2 60 40" (opponents), "me 40 60" (the learner), "ball 32 50", "cone 50 50", "target 80 30"; and things shown on this frame only: "pass x1 y1 x2 y2", "shot x1 y1 x2 y2", "run x1 y1 x2 y2", "zone x y r". Keep positions realistic for the sport.
+- chess: meta [a FEN, or "start"]. One frame per move: label like "1. e4", lines[0] the move as from and to squares like "e2e4" (promotion "e7e8q", castling "e1g1"), lines[1] a short reason. Moves must be legal.
+- phrase (languages): meta [language name, "rtl" if written right to left]. Each frame is a phrase: label is its English meaning; lines are its words in order as "word | pronunciation | meaning".
+- code: writing code. Each frame's lines are the code added at that step, with real indentation (2 spaces). Lines under 34 characters.
+- terminal: command-line steps. Each frame: the command first, then up to 2 lines of output.
+- intervals: timed blocks (run and walk, practice blocks, rests). Each frame is one block; value is minutes.
+- compare: getting a position, form or setup right when nothing above fits. Exactly 2 frames: the wrong way, then the right way, each with 2 to 4 short lines.
+- cycle: a repeated movement or loop when nothing above fits. Each frame is one phase; value is seconds if timing matters.
+- none: only if nothing genuinely helps.
 Diagram text must be accurate and match the steps.`,
         'low',
         6000,

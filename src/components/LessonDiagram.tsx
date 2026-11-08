@@ -5,6 +5,13 @@ import { Platform, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeInLeft, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import type { Diagram, DiagramFrame } from '../lib/coach';
+import { Build } from './diagrams/Build';
+import { Chess } from './diagrams/Chess';
+import { Field } from './diagrams/Field';
+import { Fretboard } from './diagrams/Fretboard';
+import { Keys } from './diagrams/Keys';
+import { Phrase } from './diagrams/Phrase';
+import { Piano } from './diagrams/Piano';
 import { colors, fonts } from '../theme';
 import { Text } from './Text';
 
@@ -20,7 +27,22 @@ export const diagramFrames = (d: Diagram) => (d.type === 'compare' ? 2 : d.frame
  * diagram and the numbered steps move together.
  */
 export function LessonDiagram({ diagram, frame }: { diagram: Diagram; frame: number }) {
+  const props = { frames: diagram.frames, frame, meta: diagram.meta ?? [] };
   switch (diagram.type) {
+    case 'fretboard':
+      return <Fretboard {...props} />;
+    case 'piano':
+      return <Piano {...props} />;
+    case 'keys':
+      return <Keys {...props} />;
+    case 'build':
+      return <Build {...props} />;
+    case 'field':
+      return <Field {...props} />;
+    case 'chess':
+      return <Chess {...props} />;
+    case 'phrase':
+      return <Phrase {...props} />;
     case 'code':
       return <Editor frames={diagram.frames} frame={frame} />;
     case 'terminal':
