@@ -62,6 +62,7 @@ export default function NewPlan() {
   const [goal, setGoal] = useState('');
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [upgrade, setUpgrade] = useState(false);
   const [addedId, setAddedId] = useState<string | null>(null);
 
   const rise = (n: number) => (reduce ? undefined : FadeInDown.delay(40 + n * 50).springify().dampingRatio(1).duration(360));
@@ -69,6 +70,7 @@ export default function NewPlan() {
   const failWith = (e: unknown, back: Phase) => {
     haptics.warning();
     setError(e instanceof CoachError ? e.message : 'Something went wrong. Try again.');
+    setUpgrade(e instanceof CoachError && e.upgrade);
     setPhase(back);
   };
 
@@ -184,6 +186,7 @@ export default function NewPlan() {
             {error ? (
               <View style={{ padding: 14, borderRadius: 16, borderWidth: 3, borderColor: colors.ink, backgroundColor: colors.white }} accessibilityLiveRegion="polite">
                 <Text variant="label">{error}</Text>
+                {upgrade ? <Button size="sm" variant="lime" label="See 10K Pro" style={{ marginTop: 10 }} onPress={() => router.push('/pro')} /> : null}
               </View>
             ) : null}
 

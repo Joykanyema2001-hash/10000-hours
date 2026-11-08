@@ -16,6 +16,7 @@ import { notify } from '../../lib/notify';
 import { syncNow, useSync } from '../../lib/sync';
 import { HOUR, startOfDay, withCommas } from '../../lib/time';
 import { allTimeMs, useStore } from '../../store';
+import { usePro } from '../../lib/pro';
 import { colors, fonts } from '../../theme';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -48,6 +49,7 @@ function Row({ label, detail, onPress, danger }: { label: string; detail?: strin
 }
 
 export default function Profile() {
+  const pro = usePro((s) => s.pro);
   const session = useAuth((s) => s.session);
   const profile = useAuth((s) => s.profile);
   const sync = useSync();
@@ -169,6 +171,7 @@ export default function Profile() {
         )}
 
         <View>
+          <Row label={pro ? "10K Pro · active" : "Go Pro"} detail={pro ? "Manage your subscription" : "More AI plans and lessons every month"} onPress={() => router.push('/pro')} />
           <Row label="Settings" detail="Daily goal, reminders, haptics, backups" onPress={() => router.push('/settings')} />
           {signedIn ? <Row label="Sign out" onPress={confirmSignOut} /> : null}
           {signedIn ? <Row label="Delete account" detail="Removes your account and everything saved to it" onPress={confirmDelete} danger /> : null}

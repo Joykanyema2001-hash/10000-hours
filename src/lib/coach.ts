@@ -39,7 +39,8 @@ export type Diagram = { type: DiagramType; frames: DiagramFrame[]; meta?: string
 export type Lesson = { title: string; scenes: Scene[]; diagram?: Diagram };
 
 export class CoachError extends Error {
-  constructor(public code: string, message: string) {
+  /** upgrade: the free limit was reached and Pro would lift it. */
+  constructor(public code: string, message: string, public upgrade = false) {
     super(message);
   }
 }
@@ -50,7 +51,7 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
     if (error instanceof FunctionsHttpError) {
       const payload = await error.context.json().catch(() => null);
       const e = payload?.error;
-      if (e?.message) throw new CoachError(e.code ?? 'error', e.message);
+      if (e?.message) throw new CoachError(e.code ?? 'error', e.message, !!e.upgrade);
     }
     throw new CoachError('network', 'Couldn’t reach the coach. Check your connection and try again.');
   }

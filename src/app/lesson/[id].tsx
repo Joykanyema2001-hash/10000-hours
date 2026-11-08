@@ -291,7 +291,7 @@ export default function LessonScreen() {
   const node = useStore((s) => s.nodes.find((n) => n.id === id));
   const skill = useStore((s) => s.skills.find((k) => k.id === node?.skillId));
   const updateNode = useStore((s) => s.updateNode);
-  const [state, setState] = useState<{ at: 'loading' } | { at: 'error'; code: string; message: string } | { at: 'ready'; key: string; lesson: Lesson }>({ at: 'loading' });
+  const [state, setState] = useState<{ at: 'loading' } | { at: 'error'; code: string; message: string; upgrade?: boolean } | { at: 'ready'; key: string; lesson: Lesson }>({ at: 'loading' });
   const [height, setHeight] = useState(0);
   const [index, setIndex] = useState(0);
 
@@ -304,7 +304,7 @@ export default function LessonScreen() {
     setState({ at: 'loading' });
     getLesson(skill.name, node.title, node.notes)
       .then((r) => setState({ at: 'ready', ...r }))
-      .catch((e) => setState({ at: 'error', code: e instanceof CoachError ? e.code : 'error', message: e instanceof CoachError ? e.message : 'Couldn’t load this lesson.' }));
+      .catch((e) => setState({ at: 'error', code: e instanceof CoachError ? e.code : 'error', message: e instanceof CoachError ? e.message : 'Couldn’t load this lesson.', upgrade: e instanceof CoachError && e.upgrade }));
   }, [node?.id, skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(load, [load]);
@@ -371,6 +371,8 @@ export default function LessonScreen() {
                 </View>
                 <Button variant="lime" label="Agree and continue" onPress={() => { useStore.getState().setSetting({ aiConsentAt: Date.now() }); load(); }} />
               </>
+            ) : state.upgrade ? (
+              <Button variant="lime" label="See 10K Pro" onPress={() => router.push('/pro')} />
             ) : state.code === 'signin' ? (
               <AppleSignInButton onDone={load} />
             ) : (

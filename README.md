@@ -124,3 +124,10 @@ Coach tab → **Learn something new**: the coach asks a couple of questions, bui
 - Models: plans use `claude-sonnet-5-5`; questions and lessons use `claude-haiku-5-5`. Override with the `COACH_PLAN_MODEL` / `COACH_FAST_MODEL` secrets (e.g. `claude-opus-5-5` for higher-quality plans).
 - Deploy: `npx supabase functions deploy coach --project-ref jweprragcqwzyvqxyosm --no-verify-jwt` (the function checks sign-in itself).
 - Lessons with 3 reports are hidden and regenerated on next view.
+
+## 10K Pro (subscriptions)
+
+- Free: 1 AI plan, 10 new lessons, 10 coach chats a month. Pro: 30 / 300 / 200 (fair use). Already-generated lessons are always free. Limits live in `supabase/functions/coach`.
+- Purchases: RevenueCat (`react-native-purchases`) on Apple in-app purchases, logged in with the Supabase user id. Set `REVENUECAT_IOS_KEY` in `src/lib/pro.ts` (public `appl_` key). Entitlement id: `pro`.
+- Server truth: `supabase/004_pro.sql` + the `revenuecat` webhook function (secret `REVENUECAT_WEBHOOK_SECRET`) keep `public.entitlements` up to date; the coach reads it.
+- Needs a native build (not an OTA update) the first time.

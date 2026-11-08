@@ -15,6 +15,7 @@ import { SessionWatcher } from '../components/SessionWatcher';
 import { SplashHandoff } from '../components/SplashHandoff';
 import { StillGoingCheck } from '../components/StillGoingCheck';
 import { startAuth, useAuth } from '../lib/auth';
+import { startPro } from '../lib/pro';
 import { startNativeSync, syncNative } from '../lib/nativeSync';
 import { startSync, syncNow } from '../lib/sync';
 import { notify } from '../lib/notify';
@@ -60,6 +61,7 @@ export default function RootLayout() {
   useEffect(() => {
     const stopAuth = startAuth();
     const stopSync = startSync();
+    startPro();
     return () => {
       stopAuth();
       stopSync();
@@ -106,6 +108,7 @@ export default function RootLayout() {
         <Stack.Screen name="step/[id]" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="session-note/[id]" options={{ gestureEnabled: false }} />
         <Stack.Screen name="milestones" />
+        <Stack.Screen name="pro" options={{ presentation: 'modal', contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="coach/new" options={{ contentStyle: { backgroundColor: colors.paper } }} />
         <Stack.Screen name="lesson/[id]" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: colors.ink } }} />
         <Stack.Screen name="settings" />

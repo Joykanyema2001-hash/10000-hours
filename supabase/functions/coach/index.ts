@@ -16,7 +16,9 @@ import { z } from 'npm:zod@4.6.7';
 // Plans need the most judgement; questions and lessons are short and frequent.
 const PLAN_MODEL = Deno.env.get('COACH_PLAN_MODEL') ?? 'claude-sonnet-5-5';
 const FAST_MODEL = Deno.env.get('COACH_FAST_MODEL') ?? 'claude-haiku-5-5';
-const LIMITS = { ask: 20, plan: 3, lesson: 40 } as const;
+// Monthly limits. Free covers a taste of the coach; Pro is fair-use. Lessons someone already generated are always free.
+const LIMITS = { ask: 10, plan: 1, lesson: 10 } as const;
+const PRO_LIMITS = { ask: 200, plan: 30, lesson: 300 } as const;
 // Testers (comma-separated user ids in the COACH_TESTERS secret) get high but still capped limits.
 const TESTER_LIMITS = { ask: 500, plan: 100, lesson: 500 } as const;
 const TESTERS = new Set((Deno.env.get('COACH_TESTERS') ?? '').split(',').map((s) => s.trim()).filter(Boolean));
@@ -165,8 +167,24 @@ function cleanDiagram(d: RawDiagram | undefined): RawDiagram & { meta: string[] 
   return { type, frames, meta };
 }
 
+/** Pro if RevenueCat says the subscription runs past now (kept in public.entitlements by the revenuecat function). */
+async function isPro(userId: string) {
+  const { data } = await admin.from('entitlements').select('expires_at').eq('user_id', userId).maybeSingle();
+  return !!data?.expires_at && new Date(data.expires_at).getTime() > Date.now();
+}
+
+/** A limit reached: free accounts are offered Pro, Pro accounts are told when it resets. */
+async function limitReply(userId: string, what: string) {
+  const pro = TESTERS.has(userId) || (await isPro(userId));
+  return reply(429, {
+    error: pro
+      ? { code: 'limit', message: `You've reached this month's fair-use limit for ${what}. It resets on the 1st.` }
+      : { code: 'limit', upgrade: true, message: `Free accounts get ${what === 'plans' ? `${LIMITS.plan} AI plan` : what === 'lessons' ? `${LIMITS.lesson} new lessons` : `${LIMITS.ask} coach chats`} a month. Go Pro for much more, or wait until the 1st.` },
+  });
+}
+
 async function take(userId: string, kind: keyof typeof LIMITS) {
-  const limit = TESTERS.has(userId) ? TESTER_LIMITS[kind] : LIMITS[kind];
+  const limit = TESTERS.has(userId) ? TESTER_LIMITS[kind] : (await isPro(userId)) ? PRO_LIMITS[kind] : LIMITS[kind];
   const { data, error } = await admin.rpc('coach_take', { p_user: userId, p_kind: kind, p_limit: limit });
   if (error) throw new Error(`usage: ${error.message}`);
   return data === true;
@@ -198,7 +216,7 @@ Deno.serve(async (req) => {
       const goal = clean(body.goal, 200);
       if (goal.length < 2) return fail(400, 'bad_request', 'Say what you want to learn.');
       kind = 'ask';
-      if (!(await take(user.id, kind))) return fail(429, 'limit', 'You have used this month’s coach questions. They reset on the 1st.');
+      if (!(await take(user.id, kind))) return limitReply(user.id, 'chats');
       const out = await generate(
         FAST_MODEL,
         Questions,
@@ -216,7 +234,7 @@ Deno.serve(async (req) => {
       const answers = Array.isArray(body.answers) ? body.answers.slice(0, 4) : [];
       if (goal.length < 2) return fail(400, 'bad_request', 'Say what you want to learn.');
       kind = 'plan';
-      if (!(await take(user.id, kind))) return fail(429, 'limit', `You can make ${LIMITS.plan} new plans a month. More on the 1st.`);
+      if (!(await take(user.id, kind))) return limitReply(user.id, 'plans');
       const context = answers.map((a: { question?: unknown; answer?: unknown }) => `- ${clean(a?.question, 140)}: ${clean(a?.answer, 140)}`).join('\n');
       const out = await generate(
         PLAN_MODEL,
@@ -244,7 +262,7 @@ Deno.serve(async (req) => {
       if (cached && !cached.hidden) return reply(200, { key, lesson: cached.lesson, cached: true });
 
       kind = 'lesson';
-      if (!(await take(user.id, kind))) return fail(429, 'limit', 'You have reached this month’s new-lesson limit. Saved lessons still work.');
+      if (!(await take(user.id, kind))) return limitReply(user.id, 'lessons');
       const lesson = await generate(
         FAST_MODEL,
         Lesson,
